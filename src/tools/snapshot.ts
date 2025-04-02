@@ -102,6 +102,7 @@ export const hover: Tool = {
 const typeSchema = elementSchema.extend({
   text: z.string().describe('Text to type into the element'),
   submit: z.boolean().describe('Whether to submit entered text (press Enter after)'),
+  slowly: z.boolean().describe('Wether to type one character at a time. Useful for triggering key handlers in the page. By default entire text is filled in at once.'),
 });
 
 export const type: Tool = {
@@ -115,7 +116,10 @@ export const type: Tool = {
     const validatedParams = typeSchema.parse(params);
     return await context.runAndWaitWithSnapshot(async () => {
       const locator = context.lastSnapshot().refLocator(validatedParams.ref);
-      await locator.fill(validatedParams.text);
+      if (validatedParams.slowly)
+        await locator.pressSequentially(validatedParams.text);
+      else
+        await locator.fill(validatedParams.text);
       if (validatedParams.submit)
         await locator.press('Enter');
     }, {
@@ -124,7 +128,7 @@ export const type: Tool = {
   },
 };
 
-const selectOptionSchema = elementSchema.extend({
+const selectSchema = elementSchema.extend({
   values: z.array(z.string()).describe('Array of values to select in the dropdown. This can be a single value or multiple values.'),
 });
 
@@ -132,11 +136,11 @@ export const selectOption: Tool = {
   schema: {
     name: 'browser_select_option',
     description: 'Select an option in a dropdown',
-    inputSchema: zodToJsonSchema(selectOptionSchema),
+    inputSchema: zodToJsonSchema(selectSchema),
   },
 
   handle: async (context, params) => {
-    const validatedParams = selectOptionSchema.parse(params);
+    const validatedParams = selectSchema.parse(params);
     return await context.runAndWaitWithSnapshot(async () => {
       const locator = context.lastSnapshot().refLocator(validatedParams.ref);
       await locator.selectOption(validatedParams.values);

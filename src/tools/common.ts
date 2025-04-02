@@ -113,7 +113,7 @@ const pressKeySchema = z.object({
 export const pressKey: (captureSnapshot: boolean) => Tool = captureSnapshot => ({
   schema: {
     name: 'browser_press_key',
-    description: 'Press a key on the keyboard',
+    description: 'Press a key on the keyboard.',
     inputSchema: zodToJsonSchema(pressKeySchema),
   },
   handle: async (context, params) => {

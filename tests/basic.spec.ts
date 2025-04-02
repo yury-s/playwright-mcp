@@ -368,3 +368,35 @@ test('executable path', async ({ startClient }) => {
   });
   expect(response).toContainTextContent(`executable doesn't exist`);
 });
+
+test('type slowly', async ({ client }) => {
+  await client.callTool({
+    name: 'browser_navigate',
+    arguments: {
+      url: `data:text/html,<input type='text' onkeydown="console.log('Key pressed:', event.key)"></input>`,
+    },
+  });
+  await client.callTool({
+    name: 'browser_type',
+    arguments: {
+      element: 'textbox',
+      ref: 's1e3',
+      text: 'Hi!',
+      submit: true,
+      slowly: true,
+    },
+  });
+  const resource = await client.readResource({
+    uri: 'browser://console',
+  });
+  expect(resource.contents).toEqual([{
+    uri: 'browser://console',
+    mimeType: 'text/plain',
+    text: [
+      '[LOG] Key pressed: H',
+      '[LOG] Key pressed: i',
+      '[LOG] Key pressed: !',
+      '[LOG] Key pressed: Enter'
+    ].join('\n'),
+  }]);
+});
