@@ -106,7 +106,7 @@ const pressKeySchema = z.object({
 export const pressKey: Tool = {
   schema: {
     name: 'browser_press_key',
-    description: 'Press a key on the keyboard',
+    description: 'Press a key on the keyboard. Use to type text one character at a time or to press special keys like ArrowLeft, ArrowRight.',
     inputSchema: zodToJsonSchema(pressKeySchema),
   },
   handle: async (context, params) => {
