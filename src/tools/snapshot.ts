@@ -128,7 +128,7 @@ export const type: Tool = {
   },
 };
 
-const selectSchema = elementSchema.extend({
+const selectOptionSchema = elementSchema.extend({
   values: z.array(z.string()).describe('Array of values to select in the dropdown. This can be a single value or multiple values.'),
 });
 
@@ -136,11 +136,11 @@ export const selectOption: Tool = {
   schema: {
     name: 'browser_select_option',
     description: 'Select an option in a dropdown',
-    inputSchema: zodToJsonSchema(selectSchema),
+    inputSchema: zodToJsonSchema(selectOptionSchema),
   },
 
   handle: async (context, params) => {
-    const validatedParams = selectSchema.parse(params);
+    const validatedParams = selectOptionSchema.parse(params);
     return await context.runAndWaitWithSnapshot(async () => {
       const locator = context.lastSnapshot().refLocator(validatedParams.ref);
       await locator.selectOption(validatedParams.values);
