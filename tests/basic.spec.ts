@@ -373,7 +373,7 @@ test('fill in text', async ({ client }) => {
   await client.callTool({
     name: 'browser_navigate',
     arguments: {
-      url: `data:text/html,<input type='text' onkeydown="console.log('Key pressed:', event.key, ', Text:', event.target.value)"></input>`,
+      url: `data:text/html,<input type='keypress' onkeypress="console.log('Key pressed:', event.key, ', Text:', event.target.value)"></input>`,
     },
   });
   await client.callTool({
