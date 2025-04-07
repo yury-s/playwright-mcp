@@ -30,6 +30,7 @@ export default defineConfig({
     { name: 'msedge', use: { mcpBrowser: 'msedge' } },
     { name: 'chromium', use: { mcpBrowser: 'chromium' } },
     { name: 'firefox', use: { mcpBrowser: 'firefox' } },
+    { name: 'moz-firefox', use: { mcpBrowser: 'moz-firefox' } },
     { name: 'webkit', use: { mcpBrowser: 'webkit' } },
   ].filter(Boolean) as Project[],
 });
