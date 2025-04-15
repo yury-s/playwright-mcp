@@ -40,12 +40,16 @@ export const test = baseTest.extend<Fixtures>({
     await use(await startClient({ args: ['--vision'] }));
   },
 
-  startClient: async ({ }, use, testInfo) => {
+  startClient: async ({ browserName, channel }, use, testInfo) => {
     const userDataDir = testInfo.outputPath('user-data-dir');
     let client: StdioClientTransport | undefined;
 
     use(async options => {
       const args = ['--headless', '--user-data-dir', userDataDir];
+      if (channel)
+        args.push('--browser', channel);
+      else if (browserName !== 'chromium')
+        args.push('--browser', browserName);
       if (options?.args)
         args.push(...options.args);
       const transport = new StdioClientTransport({
