@@ -27,9 +27,9 @@ export default defineConfig({
   reporter: 'list',
   projects: [
     { name: 'chromium' },
-    { name: 'firefox' },
-    { name: 'webkit' },
-    { name: 'chrome', use: { channel: 'chrome' } },
-    { name: 'msedge', use: { channel: 'msedge' } },
+    { name: 'firefox', use: { mcpBrowser: 'firefox' } },
+    { name: 'webkit', use: { mcpBrowser: 'webkit' } },
+    { name: 'chrome', use: { mcpBrowser: 'chrome' } },
+    { name: 'msedge', use: { mcpBrowser: 'msedge' } },
   ].filter(Boolean) as Project[],
 });
