@@ -73,8 +73,11 @@ program
           channel = 'chrome';
       }
 
+      let headless = options.headless;
+      if (headless === undefined && os.platform() === 'linux')
+        headless = !process.env.DISPLAY;
       const launchOptions: LaunchOptions = {
-        headless: options.headless ?? !process.env.DISPLAY,
+        headless,
         channel,
         executablePath: options.executablePath,
       };
