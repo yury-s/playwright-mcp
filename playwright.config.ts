@@ -26,10 +26,10 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'list',
   projects: [
+    { name: 'chrome' },
+    { name: 'msedge', use: { mcpBrowser: 'msedge' } },
     { name: 'chromium', use: { mcpBrowser: 'chromium' } },
     { name: 'firefox', use: { mcpBrowser: 'firefox' } },
     { name: 'webkit', use: { mcpBrowser: 'webkit' } },
-    { name: 'chrome' },
-    { name: 'msedge', use: { mcpBrowser: 'msedge' } },
   ].filter(Boolean) as Project[],
 });
