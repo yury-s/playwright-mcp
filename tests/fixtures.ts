@@ -28,6 +28,7 @@ type Fixtures = {
   startClient: (options?: { args?: string[] }) => Promise<Client>;
   wsEndpoint: string;
   cdpEndpoint: string;
+  browserOption: string | undefined;
 };
 
 export const test = baseTest.extend<Fixtures>({
@@ -40,16 +41,14 @@ export const test = baseTest.extend<Fixtures>({
     await use(await startClient({ args: ['--vision'] }));
   },
 
-  startClient: async ({ browserName, channel }, use, testInfo) => {
+  startClient: async ({ browserOption }, use, testInfo) => {
     const userDataDir = testInfo.outputPath('user-data-dir');
     let client: StdioClientTransport | undefined;
 
     use(async options => {
       const args = ['--headless', '--user-data-dir', userDataDir];
-      if (channel)
-        args.push('--browser', channel);
-      else if (browserName !== 'chromium')
-        args.push('--browser', browserName);
+      if (browserOption)
+        args.push('--browser', browserOption);
       if (options?.args)
         args.push(...options.args);
       const transport = new StdioClientTransport({
@@ -92,6 +91,15 @@ export const test = baseTest.extend<Fixtures>({
     });
     await use(`http://localhost:${port}`);
     browserProcess.kill();
+  },
+
+  browserOption: async ({ browserName, channel }, use) => {
+    let browserOption;
+    if (channel)
+      browserOption = channel;
+    else if (browserName !== 'chromium')
+      browserOption = browserName;
+    await use(browserOption);
   },
 });
 
