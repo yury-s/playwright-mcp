@@ -106,6 +106,8 @@ export const test = baseTest.extend<Fixtures>({
   },
 
   mcpBrowser: ['chromium', { option: true }],
+
+  mcpExecutablePath: [undefined, { option: true }],
 });
 
 type Response = Awaited<ReturnType<Client['callTool']>>;
