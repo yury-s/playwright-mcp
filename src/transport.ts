@@ -100,11 +100,13 @@ async function handleStreamable(server: Server, req: http.IncomingMessage, res: 
 export async function startHttpServer(config: { host?: string, port?: number }): Promise<http.Server> {
   const { host, port } = config;
   const httpServer = http.createServer();
-  // eslint-disable-next-line no-console
-  const errorListener = (error: Error) => console.error('Error starting HTTP server', error);
-  httpServer.on('error', errorListener);
-  await new Promise<void>(resolve => httpServer.listen(port, host, resolve));
-  httpServer.removeListener('error', errorListener);
+  await new Promise<void>((resolve, reject) => {
+    httpServer.on('error', reject);
+    httpServer.listen(port, host, () => {
+      resolve();
+      httpServer.removeListener('error', reject);
+    });
+  });
   return httpServer;
 }
 
