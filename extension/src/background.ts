@@ -161,7 +161,7 @@ class TabShareExtension {
    */
   async disconnectTab(tabId: number): Promise<void> {
     await this._cleanupConnection(tabId);
-    void this._updateUI(tabId, { text: '', color: null, title: 'Share tab with Playwright MCP' });
+    await this._updateUI(tabId, { text: '', color: null, title: 'Share tab with Playwright MCP' });
     debugLog(`Tab ${tabId} disconnected`);
   }
 
