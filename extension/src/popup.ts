@@ -16,17 +16,17 @@
 
 class PopupController {
   private currentTab: chrome.tabs.Tab | null;
-  private bridgeUrlInput: HTMLInputElement | null;
-  private connectBtn: HTMLButtonElement | null;
-  private statusContainer: HTMLElement | null;
-  private actionContainer: HTMLElement | null;
+  private readonly bridgeUrlInput: HTMLInputElement;
+  private readonly connectBtn: HTMLButtonElement;
+  private readonly statusContainer: HTMLElement;
+  private readonly actionContainer: HTMLElement;
 
   constructor() {
     this.currentTab = null;
-    this.bridgeUrlInput = document.getElementById('bridge-url') as HTMLInputElement | null;
-    this.connectBtn = document.getElementById('connect-btn') as HTMLButtonElement | null;
-    this.statusContainer = document.getElementById('status-container') as HTMLElement | null;
-    this.actionContainer = document.getElementById('action-container') as HTMLElement | null;
+    this.bridgeUrlInput = document.getElementById('bridge-url') as HTMLInputElement;
+    this.connectBtn = document.getElementById('connect-btn') as HTMLButtonElement;
+    this.statusContainer = document.getElementById('status-container') as HTMLElement;
+    this.actionContainer = document.getElementById('action-container') as HTMLElement;
 
     void this.init();
   }
