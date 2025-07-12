@@ -36,18 +36,52 @@ type ProtocolResponse = {
   error?: string;
 };
 
+export interface Transport {
+  onmessage?: (command: ProtocolCommand) => Promise<void> | void;
+  send(message: ProtocolResponse): void;
+  close(message?: string): void;
+}
+
+export class WebSocketTransport implements Transport {
+  private _ws: WebSocket;
+
+  onmessage?: (command: ProtocolCommand) => Promise<void> | void;
+
+  constructor(ws: WebSocket) {
+    this._ws = ws;
+    this._ws.onmessage = this._onMessage.bind(this);
+  }
+
+  send(message: ProtocolResponse): void {
+    this._ws.send(JSON.stringify(message));
+  }
+
+  close(message?: string): void {
+    this._ws.close(1000, message || 'Connection closed');
+  }
+
+  private async _onMessage(event: MessageEvent): Promise<void> {
+    try {
+      const command = JSON.parse(event.data) as ProtocolCommand;
+      await this.onmessage?.(command);
+    } catch (e) {
+      debugLog('Error handling message:', e);
+    }
+  }
+}
+
 export class RelayConnection {
   private _debuggee: chrome.debugger.Debuggee;
   private _rootSessionId: string;
-  private _ws: WebSocket;
+  private _transport: Transport;
   private _eventListener: (source: chrome.debugger.DebuggerSession, method: string, params: any) => void;
   private _detachListener: (source: chrome.debugger.Debuggee, reason: string) => void;
 
-  constructor(tabId: number, ws: WebSocket) {
+  constructor(tabId: number, transport: Transport) {
     this._debuggee = { tabId };
     this._rootSessionId = `pw-tab-${tabId}`;
-    this._ws = ws;
-    this._ws.onmessage = this._onMessage.bind(this);
+    this._transport = transport;
+    this._transport.onmessage = this._onMessage.bind(this);
     // Store listeners for cleanup
     this._eventListener = this._onDebuggerEvent.bind(this);
     this._detachListener = this._onDebuggerDetach.bind(this);
@@ -58,7 +92,7 @@ export class RelayConnection {
   close(message?: string): void {
     chrome.debugger.onEvent.removeListener(this._eventListener);
     chrome.debugger.onDetach.removeListener(this._detachListener);
-    this._ws.close(1000, message || 'Connection closed');
+    this._transport.close(message);
   }
 
   async detachDebugger(): Promise<void> {
@@ -92,27 +126,14 @@ export class RelayConnection {
     });
   }
 
-  private _onMessage(event: MessageEvent): void {
-    this._onMessageAsync(event).catch(e => debugLog('Error handling message:', e));
-  }
-
-  private async _onMessageAsync(event: MessageEvent): Promise<void> {
-    let message: ProtocolCommand;
-    try {
-      message = JSON.parse(event.data);
-    } catch (error: any) {
-      debugLog('Error parsing message:', error);
-      this._sendError(-32700, `Error parsing message: ${error.message}`);
-      return;
-    }
-
-    debugLog('Received message:', message);
+  private async _onMessage(command: ProtocolCommand): Promise<void> {
+    debugLog('Received message:', command);
 
     const response: ProtocolResponse = {
-      id: message.id,
+      id: command.id,
     };
     try {
-      response.result = await this._handleCommand(message);
+      response.result = await this._handleCommand(command);
     } catch (error: any) {
       debugLog('Error handling command:', error);
       response.error = error.message;
@@ -151,16 +172,7 @@ export class RelayConnection {
     }
   }
 
-  private _sendError(code: number, message: string): void {
-    this._sendMessage({
-      error: {
-        code,
-        message,
-      },
-    });
-  }
-
-  private _sendMessage(message: any): void {
-    this._ws.send(JSON.stringify(message));
+  private _sendMessage(message: ProtocolResponse): void {
+    this._transport.send(message);
   }
 }

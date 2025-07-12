@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import { RelayConnection, debugLog } from './relayConnection.js';
+import { NativeMessagingClient } from './nativeMessagingClient.js';
+import { RelayConnection, WebSocketTransport, debugLog } from './relayConnection.js';
 
 /**
  * Simple Chrome Extension that pumps CDP messages between chrome.debugger and WebSocket
@@ -39,6 +40,7 @@ class TabShareExtension {
 
     // Handle messages from popup
     chrome.runtime.onMessage.addListener(this.onMessage.bind(this));
+
   }
 
   /**
@@ -47,6 +49,7 @@ class TabShareExtension {
   onMessage(message: PopupMessage, sender: chrome.runtime.MessageSender, sendResponse: SendResponse): boolean {
     switch (message.type) {
       case 'getStatus':
+        new NativeMessagingClient();
         this.getStatus(message.tabId, sendResponse);
         return true; // Will respond asynchronously
 
@@ -119,7 +122,7 @@ class TabShareExtension {
         setTimeout(() => reject(new Error('Connection timeout')), 5000);
       });
 
-      const info = this._createConnection(tabId, socket);
+      const info = this._createWebSocketConnection(tabId, socket);
       // Store connection
       this.activeConnections.set(tabId, info);
 
@@ -143,8 +146,8 @@ class TabShareExtension {
     await chrome.action.setTitle({ tabId, title });
   }
 
-  private _createConnection(tabId: number, socket: WebSocket): RelayConnection {
-    const connection = new RelayConnection(tabId, socket);
+  private _createWebSocketConnection(tabId: number, socket: WebSocket): RelayConnection {
+    const connection = new RelayConnection(tabId, new WebSocketTransport(socket));
     socket.onclose = () => {
       debugLog(`WebSocket closed for tab ${tabId}`);
       void this.disconnectTab(tabId);

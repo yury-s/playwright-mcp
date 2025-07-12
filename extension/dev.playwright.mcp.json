@@ -1,0 +1,9 @@
+{
+  "name": "dev.playwright.mcp",
+  "description": "Playwright MCP extension",
+  "path": "/Users/yurys/playwright-mcp/extension/nativehost.sh",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://mangglfdlgacbgdpafhocifmogpbnooa/"
+  ]
+}

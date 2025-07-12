@@ -6,9 +6,12 @@
 
   "permissions": [
     "debugger",
+    "nativeMessaging",
     "activeTab",
     "tabs",
-    "storage"
+    "storage",
+    "scripting", // for showing dialogs
+    "notifications" // for showing dialogs
   ],
 
   "host_permissions": [
@@ -23,6 +26,10 @@
   "action": {
     "default_title": "Share tab with Playwright MCP",
     "default_popup": "popup.html",
+    "web_accessible_resources": [{
+      "resources": ["connection-dialog.html"],
+      "matches": ["<all_urls>"]
+    }],
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
