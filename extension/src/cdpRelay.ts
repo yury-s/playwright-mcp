@@ -78,13 +78,15 @@ export class CDPRelayServer {
   }
 
   private async _verifyClient(info: { origin: string; secure: boolean; req: http.IncomingMessage }, callback: (res: boolean, httpStatusCode?: number, message?: string) => void) {
-    debugLog('Verifying client', info.req.url);
+    debugLog('Verifying client', info.req.url, JSON.stringify(info.req.headers, null, 2));
     try {
       if (info.req.url !== CDP_PATH) {
         callback(false, 404, `Unknown path: ${info.req.url}`);
         return;
       }
-      const { accept } = await this._extensionConnection?.send('acceptMCPConnection', {});
+      const { accept } = await this._extensionConnection?.send('acceptMCPConnection', {
+        userAgent: info.req.headers['user-agent'],
+      });
       if (accept)
         callback(true, 200, 'Accepted');
       else

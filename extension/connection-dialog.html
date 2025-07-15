@@ -34,6 +34,10 @@
       margin-bottom: 2rem;
       text-align: center;
       letter-spacing: 0.01em;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      /* Constrain width and center the title */
     }
     button {
       background: #0078d4;
@@ -64,6 +68,7 @@
 </head>
 <body>
   <h1>An MCP client is requesting a connection. Accept the connection?</h1>
+  <div id="userAgent" style="margin-bottom: 2rem; text-align: center; font-size: 1rem; color: #666;"></div>
   <button id="yes">Yes</button>
   <button id="no">No</button>
   <script src="connection-dialog.js"></script> <!-- ✅ External script only -->

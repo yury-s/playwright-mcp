@@ -79,7 +79,8 @@ export class NativeMessagingClient implements Connection {
   private async _acceptMCPConnection(params: any): Promise<boolean> {
     let tab: chrome.tabs.Tab;
     try {
-      tab = await chrome.tabs.create({ url: chrome.runtime.getURL('connection-dialog.html') });
+      const url = chrome.runtime.getURL('connection-dialog.html') + '?userAgent=' + params.userAgent;
+      tab = await chrome.tabs.create({ url });
       await Promise.all([
         chrome.tabs.update(tab.id!, { active: true }),
         chrome.windows.update(tab.windowId, { focused: true }),
