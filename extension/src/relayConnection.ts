@@ -36,52 +36,24 @@ export type ProtocolResponse = {
   error?: string;
 };
 
-export interface Transport {
-  onmessage?: (command: ProtocolCommand) => Promise<void> | void;
-  send(message: ProtocolResponse): void;
+export interface Connection {
+  onmessage?: (method: string, params: any) => Promise<void> | void;
+  sendEvent(method: string, params: any): void;
   close(message?: string): void;
-}
-
-export class WebSocketTransport implements Transport {
-  private _ws: WebSocket;
-
-  onmessage?: (command: ProtocolCommand) => Promise<void> | void;
-
-  constructor(ws: WebSocket) {
-    this._ws = ws;
-    this._ws.onmessage = this._onMessage.bind(this);
-  }
-
-  send(message: ProtocolResponse): void {
-    this._ws.send(JSON.stringify(message));
-  }
-
-  close(message?: string): void {
-    this._ws.close(1000, message || 'Connection closed');
-  }
-
-  private async _onMessage(event: MessageEvent): Promise<void> {
-    try {
-      const command = JSON.parse(event.data) as ProtocolCommand;
-      await this.onmessage?.(command);
-    } catch (e) {
-      debugLog('Error handling message:', e);
-    }
-  }
 }
 
 export class RelayConnection {
   private _debuggee: chrome.debugger.Debuggee;
   private _rootSessionId: string;
-  private _transport: Transport;
+  private _connection: Connection;
   private _eventListener: (source: chrome.debugger.DebuggerSession, method: string, params: any) => void;
   private _detachListener: (source: chrome.debugger.Debuggee, reason: string) => void;
 
-  constructor(tabId: number, transport: Transport) {
+  constructor(tabId: number, transport: Connection) {
     this._debuggee = { tabId };
     this._rootSessionId = `pw-tab-${tabId}`;
-    this._transport = transport;
-    this._transport.onmessage = this._onMessage.bind(this);
+    this._connection = transport;
+    this._connection.onmessage = this._onCommand.bind(this);
     // Store listeners for cleanup
     this._eventListener = this._onDebuggerEvent.bind(this);
     this._detachListener = this._onDebuggerDetach.bind(this);
@@ -92,7 +64,7 @@ export class RelayConnection {
   close(message?: string): void {
     chrome.debugger.onEvent.removeListener(this._eventListener);
     chrome.debugger.onDetach.removeListener(this._detachListener);
-    this._transport.close(message);
+    this._connection.close(message);
   }
 
   async detachDebugger(): Promise<void> {
@@ -104,46 +76,24 @@ export class RelayConnection {
       return;
     debugLog('Forwarding CDP event:', method, params);
     const sessionId = source.sessionId || this._rootSessionId;
-    this._sendMessage({
-      method: 'forwardCDPEvent',
-      params: {
-        sessionId,
-        method,
-        params,
-      },
+    this._sendEvent('forwardCDPEvent', {
+      sessionId,
+      method,
+      params,
     });
   }
 
   private _onDebuggerDetach(source: chrome.debugger.Debuggee, reason: string): void {
     if (source.tabId !== this._debuggee.tabId)
       return;
-    this._sendMessage({
-      method: 'detachedFromTab',
-      params: {
-        tabId: this._debuggee.tabId,
-        reason,
-      },
+    this._sendEvent('detachedFromTab', {
+      tabId: this._debuggee.tabId,
+      reason,
     });
   }
 
-  private async _onMessage(command: ProtocolCommand): Promise<void> {
-    debugLog('Received message:', command);
-
-    const response: ProtocolResponse = {
-      id: command.id,
-    };
-    try {
-      response.result = await this._handleCommand(command);
-    } catch (error: any) {
-      debugLog('Error handling command:', error);
-      response.error = error.message;
-    }
-    debugLog('Sending response:', response);
-    this._sendMessage(response);
-  }
-
-  private async _handleCommand(message: ProtocolCommand): Promise<any> {
-    if (message.method === 'attachToTab') {
+  private async _onCommand(method: string, params: any): Promise<any> {
+    if (method === 'attachToTab') {
       debugLog('Attaching debugger to tab:', this._debuggee);
       await chrome.debugger.attach(this._debuggee, '1.3');
       const result: any = await chrome.debugger.sendCommand(this._debuggee, 'Target.getTargetInfo');
@@ -152,13 +102,13 @@ export class RelayConnection {
         targetInfo: result?.targetInfo,
       };
     }
-    if (message.method === 'detachFromTab') {
+    if (method === 'detachFromTab') {
       debugLog('Detaching debugger from tab:', this._debuggee);
       return await this.detachDebugger();
     }
-    if (message.method === 'forwardCDPCommand') {
-      const { sessionId, method, params } = message.params;
-      debugLog('CDP command:', method, params);
+    if (method === 'forwardCDPCommand') {
+      const { sessionId, method, params: cdpParams } = params;
+      debugLog('CDP command:', method, cdpParams);
       const debuggerSession: chrome.debugger.DebuggerSession = { ...this._debuggee };
       // Pass session id, unless it's the root session.
       if (sessionId && sessionId !== this._rootSessionId)
@@ -167,12 +117,12 @@ export class RelayConnection {
       return await chrome.debugger.sendCommand(
           debuggerSession,
           method,
-          params
+          cdpParams
       );
     }
   }
 
-  private _sendMessage(message: ProtocolResponse): void {
-    this._transport.send(message);
+  private _sendEvent(method: string, params: any): void {
+    this._connection.sendEvent(method, params);
   }
 }

@@ -14,70 +14,69 @@
  * limitations under the License.
  */
 
-import { debugLog, ProtocolCommand, ProtocolResponse, RelayConnection, Transport } from './relayConnection.js';
+import { debugLog, RelayConnection, Connection } from './relayConnection.js';
 
-import type { NativeCommand } from './nativeMessagingProtocol.js';
+import type { NativeCommand, NativeResponse } from './nativeMessagingProtocol.js';
 
-export class NativeMessagingClient {
+export class NativeMessagingClient implements Connection {
   private _connect: (tabId: number, connection: RelayConnection) => Promise<void>;
   private _port: chrome.runtime.Port;
-  private _nativeMessagingTransport: NativeMessagingTransport | null = null;
 
   constructor(connect: (tabId: number, connection: RelayConnection) => Promise<void>) {
     this._connect = connect;
     this._port = chrome.runtime.connectNative('dev.playwright.mcp');
     this._port.onMessage.addListener(async msg => {
-      await this._handleMessage(msg);
+      await this._handleCommand(msg);
     });
     this._port.onDisconnect.addListener(() => {
       debugLog('Disconnected', chrome.runtime.lastError);
     });
   }
 
-  private async _handleMessage(message: NativeCommand): Promise<void> {
-    console.log('_handleMessage', message.method);
-    switch (message.method) {
+  onmessage?: (method: string, params: any) => Promise<void> | void;
+
+  sendEvent(method: string, params: any): void {
+    this._port.postMessage({
+      method,
+      params,
+    });
+  }
+
+  close(reason?: string): void {
+    this.sendEvent('didCloseMCPConnection', { reason });
+  }
+
+  private async _handleCommand(message: NativeCommand): Promise<void> {
+    const response: NativeResponse = {
+      id: message.id,
+    };
+    try {
+      response.result = await this._handleMessage(message.method, message.params);
+    } catch (e: any) {
+      response.error = e.message;
+    }
+    this._port.postMessage(response);
+  }
+
+  private async _handleMessage(method: string, params: any): Promise<any> {
+    switch (method) {
       case 'acceptMCPConnection':
-        await this._handleAcceptMCPConnection(message);
-        break;
+        const accept = await this._acceptMCPConnection(params);
+        return { accept };
 
       case 'logToConsole':
-        console.log('logToConsole', message.params);
-        this._port.postMessage({
-          id: message.id,
-        });
-        // for (let i = 0; i < 10; i++) {
-        //   this._port.postMessage({
-        //     method: 'foo',
-        //   });
-        // }
-        console.log('logToConsole replied: ', message.id);
-        break;
+        console.log('logToConsole', params);
+        return;
 
       default:
         // Forward to the tab.
-        if (this._nativeMessagingTransport?.onmessage) {
-          await this._nativeMessagingTransport.onmessage(message);
-        } else {
-          this._port.postMessage({
-            id: message.id,
-            error: 'No native messaging transport',
-          });
-        }
-        break;
+        if (this.onmessage)
+          return await this.onmessage(method, params);
+        throw new Error('No native messaging transport');
     }
   }
 
-  private async _handleAcceptMCPConnection(message: NativeCommand): Promise<void> {
-    const sendResponse = (accept: boolean) => {
-      this._port.postMessage({
-        id: message.id,
-        result: {
-          accept,
-        },
-      });
-    };
-
+  private async _acceptMCPConnection(params: any): Promise<boolean> {
     let tab: chrome.tabs.Tab;
     try {
       tab = await chrome.tabs.create({ url: chrome.runtime.getURL('connection-dialog.html') });
@@ -86,59 +85,40 @@ export class NativeMessagingClient {
         chrome.windows.update(tab.windowId, { focused: true }),
       ]);
     } catch (error) {
-      sendResponse(false);
-      return;
+      return false ;
     }
+
+    let resolveChoice: (accept: boolean) => void;
+    const acceptPromise = new Promise<boolean>(resolve => {
+      resolveChoice = resolve;
+    });
 
     const tabRemovedListener = (tabId: number, removeInfo: chrome.tabs.TabRemoveInfo) => {
       if (tabId !== tab.id)
         return;
-      void handleChoice(false);
+      resolveChoice(false);
     };
     chrome.tabs.onRemoved.addListener(tabRemovedListener);
 
     const messageListener = (msg: { type: string, answer: string }) => {
       if (msg.type === 'dialog-response')
-        void handleChoice(msg.answer === 'yes');
+        resolveChoice(msg.answer === 'yes');
     };
     chrome.runtime.onMessage.addListener(messageListener);
 
-    const handleChoice = async (accept: boolean) => {
-      chrome.tabs.onRemoved.removeListener(tabRemovedListener);
-      chrome.runtime.onMessage.removeListener(messageListener);
+    try {
+      let accept = await acceptPromise;
       if (accept) {
         try {
-          this._nativeMessagingTransport = new NativeMessagingTransport(this._port);
-          await this._connect(tab.id!, new RelayConnection(tab.id!, this._nativeMessagingTransport));
+          await this._connect(tab.id!, new RelayConnection(tab.id!, this));
         } catch (error) {
           accept = false;
-          this._nativeMessagingTransport = null;
         }
       }
-      sendResponse(accept);
-    };
-  }
-}
-
-class NativeMessagingTransport implements Transport {
-  private _port: chrome.runtime.Port;
-
-  onmessage?: (command: ProtocolCommand) => Promise<void> | void;
-
-  constructor(port: chrome.runtime.Port) {
-    this._port = port;
-  }
-
-  send(message: ProtocolResponse): void {
-    this._port.postMessage(message);
-  }
-
-  close(message?: string): void {
-    this._port.postMessage({
-      method: 'didCloseMCPConnection',
-      params: {
-        reason: message,
-      },
-    });
+      return accept;
+    } finally {
+      chrome.tabs.onRemoved.removeListener(tabRemovedListener);
+      chrome.runtime.onMessage.removeListener(messageListener);
+    }
   }
 }

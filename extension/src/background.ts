@@ -15,7 +15,7 @@
  */
 
 import { NativeMessagingClient } from './nativeMessagingClient.js';
-import { RelayConnection, WebSocketTransport, debugLog } from './relayConnection.js';
+import { RelayConnection, debugLog } from './relayConnection.js';
 
 /**
  * Simple Chrome Extension that pumps CDP messages between chrome.debugger and WebSocket
@@ -147,16 +147,7 @@ class TabShareExtension {
   }
 
   private _createWebSocketConnection(tabId: number, socket: WebSocket): RelayConnection {
-    const connection = new RelayConnection(tabId, new WebSocketTransport(socket));
-    socket.onclose = () => {
-      debugLog(`WebSocket closed for tab ${tabId}`);
-      void this.disconnectTab(tabId);
-    };
-    socket.onerror = error => {
-      debugLog(`WebSocket error for tab ${tabId}:`, error);
-      void this.disconnectTab(tabId);
-    };
-    return connection;
+    throw new Error('Not implemented');
   }
 
   /**
