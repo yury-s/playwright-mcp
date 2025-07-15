@@ -42,7 +42,7 @@ export class NativeMessagingHost {
           break;
         // Read the frame body.
         const messageBuffer = buffer.subarray(0, frameLen);
-        debugLog('Received: ' + messageBuffer.toString());
+        // debugLog('Received: ' + messageBuffer.toString());
         buffer = buffer.subarray(frameLen);
         try {
           const message = JSON.parse(messageBuffer.toString());
@@ -71,7 +71,7 @@ export class NativeMessagingHost {
         return;
       process.exit(2);
     });
-    debugLog('Sent: ' + messageString);
+    // debugLog('Sent: ' + messageString);
   }
 }
 
