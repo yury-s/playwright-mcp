@@ -31,6 +31,7 @@ type SendResponse = (response: any) => void;
 
 class TabShareExtension {
   private activeConnections: Map<number, RelayConnection>;
+  private _nativeMessagingClient: NativeMessagingClient;
 
   constructor() {
     this.activeConnections = new Map(); // tabId -> connection
@@ -41,6 +42,8 @@ class TabShareExtension {
     // Handle messages from popup
     chrome.runtime.onMessage.addListener(this.onMessage.bind(this));
 
+    this._nativeMessagingClient = new NativeMessagingClient(this._updateTabConnection.bind(this));
+
   }
 
   /**
@@ -49,12 +52,11 @@ class TabShareExtension {
   onMessage(message: PopupMessage, sender: chrome.runtime.MessageSender, sendResponse: SendResponse): boolean {
     switch (message.type) {
       case 'getStatus':
-        new NativeMessagingClient();
         this.getStatus(message.tabId, sendResponse);
         return true; // Will respond asynchronously
 
       case 'connect':
-        this.connectTab(message.tabId, message.bridgeUrl!).then(
+        this._connectTabToRelayServer(message.tabId, message.bridgeUrl!).then(
             () => sendResponse({ success: true }),
             (error: Error) => sendResponse({ success: false, error: error.message })
         );
@@ -108,35 +110,33 @@ class TabShareExtension {
     }
   }
 
-  /**
-   * Connect a tab to the bridge server
-   */
-  async connectTab(tabId: number, bridgeUrl: string): Promise<void> {
+  private async _connectTabToRelayServer(tabId: number, relayUrl: string): Promise<void> {
     try {
-      debugLog(`Connecting tab ${tabId} to bridge at ${bridgeUrl}`);
-      // Connect to bridge server
-      const socket = new WebSocket(bridgeUrl);
+      debugLog(`Connecting tab ${tabId} to relay at ${relayUrl}`);
+      // Connect to relay server
+      const socket = new WebSocket(relayUrl);
       await new Promise<void>((resolve, reject) => {
         socket.onopen = () => resolve();
         socket.onerror = () => reject(new Error('WebSocket error'));
         setTimeout(() => reject(new Error('Connection timeout')), 5000);
       });
 
-      const info = this._createWebSocketConnection(tabId, socket);
-      // Store connection
-      this.activeConnections.set(tabId, info);
-
-      await this._updateUI(tabId, { text: '●', color: '#4CAF50', title: 'Disconnect from Playwright MCP' });
-      debugLog(`Tab ${tabId} connected successfully`);
+      const connection = this._createWebSocketConnection(tabId, socket);
+      await this._updateTabConnection(tabId, connection);
     } catch (error: any) {
       debugLog(`Failed to connect tab ${tabId}:`, error.message);
       await this._cleanupConnection(tabId);
-
       // Show error to user
       await this._updateUI(tabId, { text: '!', color: '#F44336', title: `Connection failed: ${error.message}` });
-
       throw error;
     }
+  }
+
+  private async _updateTabConnection(tabId: number, connection: RelayConnection): Promise<void> {
+    // Store connection
+    this.activeConnections.set(tabId, connection);
+    await this._updateUI(tabId, { text: '●', color: '#4CAF50', title: 'Disconnect from Playwright MCP' });
+    debugLog(`Tab ${tabId} connected successfully`);
   }
 
   private async _updateUI(tabId: number, { text, color, title }: { text: string; color: string | null; title: string }): Promise<void> {

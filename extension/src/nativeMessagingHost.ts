@@ -17,28 +17,36 @@
 import { stdin, stdout } from 'process';
 
 import type { NativeResponse } from './nativeMessagingProtocol';
+import { startInProcessRelay } from './cdpRelay.js';
+import { debugLog } from './nativeMessagingHostLogger.js';
 
-class NativeMessagingHost {
+export class NativeMessagingHost {
   onMessage?: (message: any) => void;
 
   constructor() {
     let buffer = Buffer.alloc(0);
     let frameLen = -1;
 
-    let count = 0;
     stdin.on('data', chunk => {
       buffer = Buffer.concat([buffer, chunk]);
-      if (frameLen === -1 && buffer.length >= 4) {
-        frameLen = buffer.readUInt32LE(0);
-        buffer = buffer.subarray(4);
-      }
-      if (frameLen !== -1 && buffer.length >= frameLen) {
+      while (buffer.length > 0) {
+        if (frameLen === -1) {
+          // Wait for the frame length.
+          if (buffer.length < 4)
+            break;
+          frameLen = buffer.readUInt32LE(0);
+          buffer = buffer.subarray(4);
+        }
+        // Wait for the full frame body.
+        if (buffer.length < frameLen)
+          break;
+        // Read the frame body.
         const messageBuffer = buffer.subarray(0, frameLen);
+        debugLog('Received: ' + messageBuffer.toString());
         buffer = buffer.subarray(frameLen);
         try {
           const message = JSON.parse(messageBuffer.toString());
           this.onMessage?.(message);
-          this.sendMessage({ text: `Received ${++count}: ` + JSON.stringify(message, null, 2) });
         } catch (error: any) {
           this.sendMessage({ error: `Failed to parse message: ${error.message}` });
         }
@@ -49,6 +57,8 @@ class NativeMessagingHost {
     stdin.on('end', () => {
       process.exit(0);
     });
+
+    debugLog('NativeMessagingHost created');
   }
 
   sendMessage(message: any): void {
@@ -61,6 +71,7 @@ class NativeMessagingHost {
         return;
       process.exit(2);
     });
+    debugLog('Sent: ' + messageString);
   }
 }
 
@@ -93,10 +104,7 @@ export class NativeConnection {
   }
 }
 
-const nativeHost = new NativeMessagingHost();
-const connection = new NativeConnection(nativeHost);
-setTimeout(async () => {
-  const result = await connection.send('acceptMCPConnection', {});
-  await connection.send('receivedChoice', { result });
-}, 100);
-export default nativeHost;
+void startInProcessRelay().catch(e => {
+  console.error(e);
+  process.exit(1);
+});

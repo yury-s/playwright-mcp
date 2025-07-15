@@ -1,9 +1,10 @@
 document.getElementById('yes').onclick = async () => {
   await chrome.runtime.sendMessage({ type: 'dialog-response', answer: 'yes' });
-  window.close();
+  document.body.innerHTML = 'Connected to MCP server';
+  // window.location.href = 'https://microsoft.com';
 };
 
 document.getElementById('no').onclick = async () => {
   await chrome.runtime.sendMessage({ type: 'dialog-response', answer: 'no' });
-  window.close();
+  document.body.innerHTML = 'Connection rejected';
 };

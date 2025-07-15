@@ -22,13 +22,13 @@ export function debugLog(...args: unknown[]): void {
   }
 }
 
-type ProtocolCommand = {
+export type ProtocolCommand = {
   id: number;
   method: string;
   params?: any;
 };
 
-type ProtocolResponse = {
+export type ProtocolResponse = {
   id?: number;
   method?: string;
   params?: any;
