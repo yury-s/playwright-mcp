@@ -69,7 +69,7 @@ export class CDPRelayServer {
         this._extensionConnection = null;
     };
     this._extensionConnection.onmessage = this._handleExtensionMessage.bind(this);
-    debugLog('CDP Relay Server started ' + JSON.stringify(server.address()));
+    debugLog('CDP Relay Server started ' + httpAddressToString(server.address()));
   }
 
   stop(): void {
@@ -303,7 +303,7 @@ class ExtensionConnection {
   }
 }
 
-export function httpAddressToString(address: string | AddressInfo | null): string {
+function httpAddressToString(address: string | AddressInfo | null): string {
   assert(address, 'Could not bind server socket');
   if (typeof address === 'string')
     return address;
