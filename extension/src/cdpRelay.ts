@@ -30,9 +30,9 @@ import { debugLog } from './nativeMessagingHostLogger.js';
 import http from 'node:http';
 import assert from 'node:assert';
 
-import type { AddressInfo } from 'node:net';
+import { startMCPServer } from '../../lib/transport.js';
 
-const CDP_PATH = '/cdp';
+import type { AddressInfo } from 'node:net';
 
 type CDPCommand = {
   id: number;
@@ -59,9 +59,11 @@ export class CDPRelayServer {
     // Page sessionId that should be used by this connection.
     sessionId: string;
   } | undefined;
+  private readonly _cdpPath: string;
 
-  constructor(server: http.Server, extensionConnection: ExtensionConnection) {
-    this._wss = new websocket.WebSocketServer({ server, verifyClient: this._verifyClient.bind(this) });
+  constructor(server: http.Server, extensionConnection: ExtensionConnection, secureCdpPath: string) {
+    this._cdpPath = secureCdpPath;
+    this._wss = new websocket.WebSocketServer({ server, verifyClient: this._verifyCDPPath.bind(this) });
     this._wss.on('connection', this._onConnection.bind(this));
     this._extensionConnection = extensionConnection;
     this._extensionConnection.onclose = c => {
@@ -77,34 +79,19 @@ export class CDPRelayServer {
     this._extensionConnection?.close();
   }
 
-  private async _verifyClient(info: { origin: string; secure: boolean; req: http.IncomingMessage }, callback: (res: boolean, httpStatusCode?: number, message?: string) => void) {
-    debugLog('Verifying client', info.req.url, JSON.stringify(info.req.headers, null, 2));
-    try {
-      if (info.req.url !== CDP_PATH) {
-        callback(false, 404, `Unknown path: ${info.req.url}`);
-        return;
-      }
-      const { accept } = await this._extensionConnection?.send('acceptMCPConnection', {
-        userAgent: info.req.headers['user-agent'],
-      });
-      if (accept)
-        callback(true, 200, 'Accepted');
-      else
-        callback(false, 403, 'Connection rejected by the extension');
-    } catch (error) {
-      callback(false, 500, 'Failed to verify client: ' + error);
+  private async _verifyCDPPath(info: { origin: string; secure: boolean; req: http.IncomingMessage }, callback: (res: boolean, httpStatusCode?: number, message?: string) => void) {
+    debugLog('Verifying client', info.req.url);
+    if (info.req.url !== this._cdpPath) {
+      callback(false, 404, `Unknown path: ${info.req.url}`);
+      return;
     }
+    callback(true);
   }
 
   private _onConnection(ws: websocket.WebSocket, request: http.IncomingMessage) {
     debugLog(`New connection to ${request.url}`);
-    if (request.url === CDP_PATH) {
-      // Must be synchronous as WebSocketServer does not buffer incoming messages.
-      this._acceptPlaywrightConnection(ws);
-    } else {
-      debugLog(`Invalid path: ${request.url}`);
-      ws.close(4004, 'Invalid path');
-    }
+    // Must be synchronous as WebSocketServer does not buffer incoming messages.
+    this._acceptPlaywrightConnection(ws);
   }
 
   private _acceptPlaywrightConnection(ws: websocket.WebSocket): void {
@@ -331,9 +318,23 @@ export async function startHttpServer(config: { host?: string, port?: number }):
 }
 
 export async function startInProcessRelay() {
-  const httpServer = await startHttpServer({ port: 4242 });
+  const httpServer = await startHttpServer({ port: 9225 });
   const extensionConnection = new ExtensionConnection(new NativeMessagingHost());
-  const server = new CDPRelayServer(httpServer, extensionConnection);
-  await extensionConnection.send('logToConsole', { msg: 'Started CDP server' });
+  const cdpPath = '/cdp/' + crypto.randomUUID();
+  const server = new CDPRelayServer(httpServer, extensionConnection, cdpPath);
+  debugLog('Started CDP server');
+  const cdpEndpoint = httpAddressToString(httpServer.address()).replace(/^http/, 'ws') + cdpPath;
+  debugLog('CDP endpoint:', cdpEndpoint);
+  await startMCPServer({
+    port: 4242,
+    cdpEndpoint,
+    extension: true,
+  }, async (req: http.IncomingMessage) => {
+    const { accept } = await extensionConnection.send('acceptMCPConnection', {
+      userAgent: req.headers['user-agent'],
+    });
+    return accept;
+  });
+  debugLog('Started MCP server inline');
   return server;
 }

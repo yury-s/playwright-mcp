@@ -24,7 +24,8 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
 import type { AddressInfo } from 'node:net';
-import type { Server } from './server.js';
+import { Server } from './server.js';
+import { CLIOptions, resolveCLIConfig } from './config.js';
 
 export async function startStdioTransport(server: Server) {
   await server.createConnection(new StdioServerTransport());
@@ -65,7 +66,7 @@ async function handleSSE(server: Server, req: http.IncomingMessage, res: http.Se
   res.end('Method not allowed');
 }
 
-async function handleStreamable(server: Server, req: http.IncomingMessage, res: http.ServerResponse, sessions: Map<string, StreamableHTTPServerTransport>) {
+async function handleStreamable(server: Server, req: http.IncomingMessage, res: http.ServerResponse, sessions: Map<string, StreamableHTTPServerTransport>, verifyClient?: (req: http.IncomingMessage) => Promise<boolean>) {
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
   if (sessionId) {
     const transport = sessions.get(sessionId);
@@ -78,6 +79,14 @@ async function handleStreamable(server: Server, req: http.IncomingMessage, res: 
   }
 
   if (req.method === 'POST') {
+    if (verifyClient) {
+      const accept = await verifyClient(req);
+      if (!accept) {
+        res.statusCode = 403;
+        res.end('MCP connection rejected by the user');
+        return;
+      }
+    }
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => crypto.randomUUID(),
       onsessioninitialized: sessionId => {
@@ -110,13 +119,13 @@ export async function startHttpServer(config: { host?: string, port?: number }):
   return httpServer;
 }
 
-export function startHttpTransport(httpServer: http.Server, mcpServer: Server) {
+export function startHttpTransport(httpServer: http.Server, mcpServer: Server, verifyClient?: (req: http.IncomingMessage) => Promise<boolean>) {
   const sseSessions = new Map<string, SSEServerTransport>();
   const streamableSessions = new Map<string, StreamableHTTPServerTransport>();
   httpServer.on('request', async (req, res) => {
     const url = new URL(`http://localhost${req.url}`);
     if (url.pathname.startsWith('/mcp'))
-      await handleStreamable(mcpServer, req, res, streamableSessions);
+      await handleStreamable(mcpServer, req, res, streamableSessions, verifyClient);
     else
       await handleSSE(mcpServer, req, res, url, sseSessions);
   });
@@ -146,4 +155,12 @@ export function httpAddressToString(address: string | AddressInfo | null): strin
   if (resolvedHost === '0.0.0.0' || resolvedHost === '[::]')
     resolvedHost = 'localhost';
   return `http://${resolvedHost}:${resolvedPort}`;
+}
+
+export async function startMCPServer(options: CLIOptions, verifyClient: (req: http.IncomingMessage) => Promise<boolean>) {
+  const config = await resolveCLIConfig(options);
+  const httpServer = await startHttpServer(config.server);
+  const server = new Server(config);
+  server.setupExitWatchdog();
+  await startHttpTransport(httpServer, server, verifyClient);
 }

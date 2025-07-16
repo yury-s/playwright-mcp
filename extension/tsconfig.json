@@ -8,6 +8,9 @@
     "rootDir": "src",
     "outDir": "./lib",
     "resolveJsonModule": true,
+    "paths": {
+      "../lib/*": ["../lib/*"]
+    }
   },
   "include": [
     "src",
