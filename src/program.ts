@@ -22,6 +22,8 @@ import { startHttpServer, startHttpTransport, startStdioTransport } from './tran
 import { commaSeparatedList, resolveCLIConfig, semicolonSeparatedList } from './config.js';
 import { Server } from './server.js';
 import { packageJSON } from './package.js';
+import { startCDPRelayServer } from './extension/cdpRelay.js';
+import type { Connection } from './connection.js';
 
 program
     .version('Version ' + packageJSON.version)
@@ -50,6 +52,7 @@ program
     .option('--user-agent <ua string>', 'specify user agent string')
     .option('--user-data-dir <path>', 'path to the user data directory. If not specified, a temporary directory will be created.')
     .option('--viewport-size <size>', 'specify browser viewport size in pixels, for example "1280, 720"')
+    .addOption(new Option('--extension', 'Connect to a running browser instance (Edge/Chrome only). Requires the "Playwright MCP Bridge" browser extension to be installed.').hideHelp())
     .addOption(new Option('--vision', 'Legacy option, use --caps=vision instead').hideHelp())
     .action(async options => {
       if (options.vision) {
@@ -58,15 +61,28 @@ program
         options.caps = 'vision';
       }
       const config = await resolveCLIConfig(options);
-      const httpServer = config.server.port !== undefined ? await startHttpServer(config.server) : undefined;
+
+      let connection: Connection | null = null;
+      if (options.extension) {
+        if (config.server.port)
+          throw new Error('--port parameter is not supported in the extension mode');
+        const cdpEndpoint = await startCDPRelayServer({
+          getClientInfo: () => connection!.server.getClientVersion()!,
+          port: 9225,
+        });
+        // Point CDP endpoint to the relay server.
+        config.browser.cdpEndpoint = cdpEndpoint;
+      }
 
       const server = new Server(config);
       server.setupExitWatchdog();
 
-      if (httpServer)
+      if (!options.extension && config.server.port !== undefined) {
+        const httpServer = await startHttpServer(config.server);
         startHttpTransport(httpServer, server);
-      else
-        await startStdioTransport(server);
+      } else {
+        connection = await startStdioTransport(server);
+      }
 
       if (config.saveTrace) {
         const server = await startTraceViewerServer();
