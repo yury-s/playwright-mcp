@@ -23,6 +23,8 @@ import { resolveCLIConfig } from './config.js';
 import { Server } from './server.js';
 import { packageJSON } from './package.js';
 import { startCDPRelayServer } from './cdpRelay.js';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 
 program
     .version('Version ' + packageJSON.version)
@@ -56,21 +58,22 @@ program
     .addOption(new Option('--extension', 'Allow connecting to a running browser instance (Edge/Chrome only). Requires the \'Playwright MCP\' browser extension to be installed.').hideHelp())
     .action(async options => {
       const config = await resolveCLIConfig(options);
-      const httpServer = config.server.port !== undefined ? await startHttpServer(config.server) : undefined;
       if (config.extension) {
-        if (!httpServer)
-          throw new Error('--port parameter is required for extension mode');
+        const relayServer = await startHttpServer({ port: config.server.port ?? 4242 });
+        const cdpEndpoint = await startCDPRelayServer(relayServer);
         // Point CDP endpoint to the relay server.
-        config.browser.cdpEndpoint = await startCDPRelayServer(httpServer);
+        config.browser.cdpEndpoint = cdpEndpoint;
       }
 
       const server = new Server(config);
       server.setupExitWatchdog();
 
-      if (httpServer)
-        await startHttpTransport(httpServer, server);
-      else
+      if (!config.extension && config.server.port !== undefined) {
+        const httpServer = await startHttpServer(config.server);
+        startHttpTransport(httpServer, server);
+      } else {
         await startStdioTransport(server);
+      }
 
       if (config.saveTrace) {
         const server = await startTraceViewerServer();
