@@ -21,9 +21,10 @@ import { RelayConnection, debugLog } from './relayConnection.js';
  */
 
 type PopupMessage = {
-  type: 'getStatus' | 'connect' | 'disconnect';
+  type: 'getStatus' | 'connect' | 'disconnect' | 'connectToMCPRelay';
   tabId: number;
   bridgeUrl?: string;
+  mcpRelayUrl?: string;
 };
 
 type SendResponse = (response: any) => void;
@@ -62,6 +63,18 @@ class TabShareExtension {
             () => sendResponse({ success: true }),
             (error: Error) => sendResponse({ success: false, error: error.message })
         );
+        return true; // Will respond asynchronously
+
+      case 'connectToMCPRelay':
+        const tabId = sender.tab?.id;
+        if (!tabId) {
+          sendResponse({ success: false, error: 'No tab id' });
+          return true;
+        }
+        console.log('connectToMCPRelay', message.mcpRelayUrl);
+        this.connectTab(tabId, message.mcpRelayUrl!).then(
+            () => sendResponse({ success: true }),
+            (error: Error) => sendResponse({ success: false, error: error.message }));
         return true; // Will respond asynchronously
     }
     return false;
