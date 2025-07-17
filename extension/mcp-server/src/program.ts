@@ -20,7 +20,6 @@ import { Connection, createConnection } from '../../../index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { startCDPRelayServer } from './cdpRelay.js';
 
-
 program
     .description('Starts the MCP server that connects to a running browser instance (Edge/Chrome only). Requires the \'Playwright MCP\' browser extension to be installed.')
     .option('--pin <pin>', 'Optional pin to show in the browser when MCP is connecting to it.')
@@ -39,7 +38,24 @@ program
           browserName: 'chromium',
         },
       });
+      setupExitWatchdog(connection);
       await connection.server.connect(new StdioServerTransport());
     });
+
+function setupExitWatchdog(connection: Connection) {
+  let isExiting = false;
+  const handleExit = async () => {
+    if (isExiting)
+      return;
+    isExiting = true;
+    setTimeout(() => process.exit(0), 15000);
+    await connection.close();
+    process.exit(0);
+  };
+
+  process.stdin.on('close', handleExit);
+  process.on('SIGINT', handleExit);
+  process.on('SIGTERM', handleExit);
+}
 
 void program.parseAsync(process.argv);
