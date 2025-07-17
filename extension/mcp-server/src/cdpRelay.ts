@@ -25,11 +25,13 @@
 /* eslint-disable no-console */
 
 import { WebSocket, WebSocketServer } from 'ws';
+import type websocket from 'ws';
 import http from 'node:http';
 import debug from 'debug';
-import { httpAddressToString } from './transport.js';
 import { promisify } from 'node:util';
 import { exec } from 'node:child_process';
+import { AddressInfo } from 'node:net';
+import assert from 'node:assert';
 
 const debugLogger = debug('pw:mcp:relay');
 
@@ -76,7 +78,6 @@ export class CDPRelayServer {
   }
 
   private async _verifyClient(info: { origin: string, req: http.IncomingMessage }, callback: (result: boolean) => void) {
-    console.log('verifyClient', info.req.url);
     if (info.req.url?.startsWith(this._cdpPath)) {
       await this._connect();
       await this._extensionConnectionPromise;
@@ -270,7 +271,7 @@ export async function startCDPRelayServer(httpServer: http.Server) {
   const cdpEndpoint = `${wsAddress}${cdpPath}`;
   const mcpRelayEndpoint = `${wsAddress}${extensionPath}`;
   const cdpRelayServer = new CDPRelayServer(httpServer, cdpPath, extensionPath, async () => {
-    // TODO: Use stable extension id.
+    // Need to specify "key" in the manifest.json to make the id stable when loading from file.
     const url = new URL('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
     url.searchParams.set('mcpRelayUrl', mcpRelayEndpoint);
     const href = url.toString();
@@ -318,7 +319,7 @@ class ExtensionConnection {
     this.onclose?.(this);
   }
 
-  private _onMessage(event: WebSocket.RawData) {
+  private _onMessage(event: websocket.RawData) {
     const eventData = event.toString();
     let parsedJson;
     try {
@@ -351,12 +352,12 @@ class ExtensionConnection {
     }
   }
 
-  private _onClose(event: WebSocket.CloseEvent) {
+  private _onClose(event: websocket.CloseEvent) {
     debugLogger(`<ws closed> code=${event.code} reason=${event.reason}`);
     this._dispose();
   }
 
-  private _onError(event: WebSocket.ErrorEvent) {
+  private _onError(event: websocket.ErrorEvent) {
     debugLogger(`<ws error> message=${event.message} type=${event.type} target=${event.target}`);
     this._dispose();
   }
@@ -366,4 +367,15 @@ class ExtensionConnection {
       callback.reject(new Error('WebSocket closed'));
     this._callbacks.clear();
   }
+}
+
+function httpAddressToString(address: string | AddressInfo | null): string {
+  assert(address, 'Could not bind server socket');
+  if (typeof address === 'string')
+    return address;
+  const resolvedPort = address.port;
+  let resolvedHost = address.family === 'IPv4' ? address.address : `[${address.address}]`;
+  if (resolvedHost === '0.0.0.0' || resolvedHost === '[::]')
+    resolvedHost = 'localhost';
+  return `http://${resolvedHost}:${resolvedPort}`;
 }

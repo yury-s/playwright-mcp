@@ -14,23 +14,42 @@
  * limitations under the License.
  */
 
+import http from 'node:http';
 import { program } from 'commander';
 
 import { createConnection } from '../../../index.js';
-// import { startCDPRelayServer } from '../../../src/cdpRelay.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { startCDPRelayServer } from './cdpRelay.js';
+
 
 program
-    .command('extension')
     .description('Starts the MCP server that connects to a running browser instance (Edge/Chrome only). Requires the \'Playwright MCP\' browser extension to be installed.')
     .option('--pin <pin>', 'Optional pin to show in the browser when MCP is connecting to it.')
     .action(async options => {
-      console.log('options', options);
+      const relayServer = await startHttpServer({ port: 9225 });
+      const cdpEndpoint = await startCDPRelayServer(relayServer);
+
       const connection = await createConnection({
         browser: {
+          // Point CDP endpoint to the relay server.
+          cdpEndpoint,
           browserName: 'chromium',
         },
       });
-      console.log('connection', !!connection);
+      await connection.server.connect(new StdioServerTransport());
     });
+
+async function startHttpServer(config: { host?: string, port?: number }): Promise<http.Server> {
+  const { host, port } = config;
+  const httpServer = http.createServer();
+  await new Promise<void>((resolve, reject) => {
+    httpServer.on('error', reject);
+    httpServer.listen(port, host, () => {
+      resolve();
+      httpServer.removeListener('error', reject);
+    });
+  });
+  return httpServer;
+}
 
 void program.parseAsync(process.argv);
