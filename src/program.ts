@@ -23,8 +23,6 @@ import { resolveCLIConfig } from './config.js';
 import { Server } from './server.js';
 import { packageJSON } from './package.js';
 import { startCDPRelayServer } from './cdpRelay.js';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
 
 program
     .version('Version ' + packageJSON.version)
