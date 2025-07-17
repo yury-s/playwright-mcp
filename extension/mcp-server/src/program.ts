@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import http from 'node:http';
 import { program } from 'commander';
 
 import { Connection, createConnection } from '../../../index.js';
@@ -26,11 +25,11 @@ program
     .description('Starts the MCP server that connects to a running browser instance (Edge/Chrome only). Requires the \'Playwright MCP\' browser extension to be installed.')
     .option('--pin <pin>', 'Optional pin to show in the browser when MCP is connecting to it.')
     .action(async options => {
-      const relayServer = await startHttpServer({ port: 9225 });
-
       let connection: Connection | null = null;
-      const cdpEndpoint = await startCDPRelayServer(relayServer, () => {
-        return connection!.server.getClientVersion()!;
+      const cdpEndpoint = await startCDPRelayServer({
+        port: 9225,
+        pin: options.pin,
+        getClientInfo: () => connection!.server.getClientVersion()!
       });
 
       connection = await createConnection({
@@ -42,18 +41,5 @@ program
       });
       await connection.server.connect(new StdioServerTransport());
     });
-
-async function startHttpServer(config: { host?: string, port?: number }): Promise<http.Server> {
-  const { host, port } = config;
-  const httpServer = http.createServer();
-  await new Promise<void>((resolve, reject) => {
-    httpServer.on('error', reject);
-    httpServer.listen(port, host, () => {
-      resolve();
-      httpServer.removeListener('error', reject);
-    });
-  });
-  return httpServer;
-}
 
 void program.parseAsync(process.argv);

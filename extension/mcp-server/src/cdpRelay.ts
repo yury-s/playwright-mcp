@@ -263,7 +263,16 @@ export class CDPRelayServer {
   }
 }
 
-export async function startCDPRelayServer(httpServer: http.Server, getClientInfo: () => { name: string, version: string }) {
+export async function startCDPRelayServer({
+  getClientInfo,
+  port,
+  pin,
+}: {
+  getClientInfo: () => { name: string, version: string };
+  port: number;
+  pin: string;
+}) {
+  const httpServer = await startHttpServer({ port });
   const uuid = crypto.randomUUID();
   const cdpPath = `/cdp/${uuid}`;
   const extensionPath = `/extension/${uuid}`;
@@ -275,6 +284,8 @@ export async function startCDPRelayServer(httpServer: http.Server, getClientInfo
     const url = new URL('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
     url.searchParams.set('mcpRelayUrl', mcpRelayEndpoint);
     url.searchParams.set('client', JSON.stringify(getClientInfo()));
+    if (pin)
+      url.searchParams.set('pin', pin);
     const href = url.toString();
     const command = `'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' '${href}'`;
     console.error(`Running ${command}...`);
@@ -379,4 +390,17 @@ function httpAddressToString(address: string | AddressInfo | null): string {
   if (resolvedHost === '0.0.0.0' || resolvedHost === '[::]')
     resolvedHost = 'localhost';
   return `http://${resolvedHost}:${resolvedPort}`;
+}
+
+async function startHttpServer(config: { host?: string, port?: number }): Promise<http.Server> {
+  const { host, port } = config;
+  const httpServer = http.createServer();
+  await new Promise<void>((resolve, reject) => {
+    httpServer.on('error', reject);
+    httpServer.listen(port, host, () => {
+      resolve();
+      httpServer.removeListener('error', reject);
+    });
+  });
+  return httpServer;
 }

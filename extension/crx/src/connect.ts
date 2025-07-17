@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusContainer.innerHTML = '';
     const div = document.createElement('div');
     div.className = `status ${type}`;
-    div.textContent = message;
+    div.innerHTML = message;
     statusContainer.appendChild(div);
   }
 
@@ -37,21 +37,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  let clientVersion = '';
+  let clientInfo = 'unknown';
   try {
     const client = JSON.parse(params.get('client') || '{}');
-    clientVersion = `${client.name}/${client.version}`;
+    clientInfo = `${client.name}/${client.version}`;
   } catch (e) {
     showStatus('error', 'Failed to parse client version.');
-    clientVersion = 'unknown';
     return;
   }
 
-  showStatus('connecting', `MCP client "${clientVersion}" is trying to connect. Do you want to continue?`);
+  let pinString = '';
+  const pin = params.get('pin');
+  if (pin)
+    pinString = ` with pin code <b>"${pin}"</b>`;
+
+  showStatus('connecting', `MCP client <b>"${clientInfo}"</b> is trying to connect${pinString}. Do you want to continue?`);
 
   rejectBtn.addEventListener('click', async () => {
     buttonRow.style.display = 'none';
-    showStatus('error', 'Connection rejected. You can close this tab.');
+    showStatus('error', 'Connection rejected. This tab can be closed.');
   });
 
   continueBtn.addEventListener('click', async () => {
@@ -62,11 +66,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         mcpRelayUrl
       });
       if (response && response.success)
-        showStatus('connected', `Connected to MCP server at ${mcpRelayUrl}`);
+        showStatus('connected', `MCP client "${clientInfo}" connected.`);
       else
-        showStatus('error', response?.error || `Failed to connect to MCP server at ${mcpRelayUrl}`);
+        showStatus('error', response?.error || `MCP client "${clientInfo}" failed to connect.`);
     } catch (e) {
-      showStatus('error', `Failed to connect to MCP server at ${mcpRelayUrl}: ${e}`);
+      showStatus('error', `MCP client "${clientInfo}" failed to connect: ${e}`);
     }
   });
 });
