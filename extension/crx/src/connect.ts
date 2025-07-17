@@ -37,7 +37,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  showStatus('connecting', `Connecting to MCP server at ${mcpRelayUrl}. Do you want to continue?`);
+  let clientVersion = '';
+  try {
+    const client = JSON.parse(params.get('client') || '{}');
+    clientVersion = `${client.name}/${client.version}`;
+  } catch (e) {
+    showStatus('error', 'Failed to parse client version.');
+    clientVersion = 'unknown';
+    return;
+  }
+
+  showStatus('connecting', `MCP client "${clientVersion}" is trying to connect. Do you want to continue?`);
 
   rejectBtn.addEventListener('click', async () => {
     buttonRow.style.display = 'none';

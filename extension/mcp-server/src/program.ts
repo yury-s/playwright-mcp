@@ -17,7 +17,7 @@
 import http from 'node:http';
 import { program } from 'commander';
 
-import { createConnection } from '../../../index.js';
+import { Connection, createConnection } from '../../../index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { startCDPRelayServer } from './cdpRelay.js';
 
@@ -27,9 +27,13 @@ program
     .option('--pin <pin>', 'Optional pin to show in the browser when MCP is connecting to it.')
     .action(async options => {
       const relayServer = await startHttpServer({ port: 9225 });
-      const cdpEndpoint = await startCDPRelayServer(relayServer);
 
-      const connection = await createConnection({
+      let connection: Connection | null = null;
+      const cdpEndpoint = await startCDPRelayServer(relayServer, () => {
+        return connection!.server.getClientVersion()!;
+      });
+
+      connection = await createConnection({
         browser: {
           // Point CDP endpoint to the relay server.
           cdpEndpoint,

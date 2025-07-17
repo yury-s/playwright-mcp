@@ -263,7 +263,7 @@ export class CDPRelayServer {
   }
 }
 
-export async function startCDPRelayServer(httpServer: http.Server) {
+export async function startCDPRelayServer(httpServer: http.Server, getClientInfo: () => { name: string, version: string }) {
   const uuid = crypto.randomUUID();
   const cdpPath = `/cdp/${uuid}`;
   const extensionPath = `/extension/${uuid}`;
@@ -274,6 +274,7 @@ export async function startCDPRelayServer(httpServer: http.Server) {
     // Need to specify "key" in the manifest.json to make the id stable when loading from file.
     const url = new URL('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
     url.searchParams.set('mcpRelayUrl', mcpRelayEndpoint);
+    url.searchParams.set('client', JSON.stringify(getClientInfo()));
     const href = url.toString();
     const command = `'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' '${href}'`;
     console.error(`Running ${command}...`);
