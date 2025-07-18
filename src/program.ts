@@ -22,8 +22,7 @@ import { startHttpServer, startHttpTransport, startStdioTransport } from './tran
 import { commaSeparatedList, resolveCLIConfig, semicolonSeparatedList } from './config.js';
 import { Server } from './server.js';
 import { packageJSON } from './package.js';
-import { startCDPRelayServer } from './extension/cdpRelay.js';
-import type { Connection } from './connection.js';
+import { runWithExtension } from './extension/main.js';
 
 program
     .version('Version ' + packageJSON.version)
@@ -55,6 +54,11 @@ program
     .addOption(new Option('--extension', 'Connect to a running browser instance (Edge/Chrome only). Requires the "Playwright MCP Bridge" browser extension to be installed.').hideHelp())
     .addOption(new Option('--vision', 'Legacy option, use --caps=vision instead').hideHelp())
     .action(async options => {
+      if (options.extension) {
+        await runWithExtension(options);
+        return;
+      }
+
       if (options.vision) {
         // eslint-disable-next-line no-console
         console.error('The --vision option is deprecated, use --caps=vision instead');
@@ -62,26 +66,14 @@ program
       }
       const config = await resolveCLIConfig(options);
 
-      let connection: Connection | null = null;
-      if (options.extension) {
-        if (config.server.port)
-          throw new Error('--port parameter is not supported in the extension mode');
-        const cdpEndpoint = await startCDPRelayServer({
-          getClientInfo: () => connection!.server.getClientVersion()!,
-          port: 9225,
-        });
-        // Point CDP endpoint to the relay server.
-        config.browser.cdpEndpoint = cdpEndpoint;
-      }
-
       const server = new Server(config);
       server.setupExitWatchdog();
 
-      if (!options.extension && config.server.port !== undefined) {
+      if (config.server.port !== undefined) {
         const httpServer = await startHttpServer(config.server);
         startHttpTransport(httpServer, server);
       } else {
-        connection = await startStdioTransport(server);
+        await startStdioTransport(server);
       }
 
       if (config.saveTrace) {
