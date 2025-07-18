@@ -21,11 +21,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const buttonRow = document.querySelector('.button-row') as HTMLElement;
 
   function showStatus(type: 'connected' | 'error' | 'connecting', message: string) {
-    statusContainer.innerHTML = '';
     const div = document.createElement('div');
     div.className = `status ${type}`;
-    div.innerHTML = message;
-    statusContainer.appendChild(div);
+    div.textContent = message;
+    statusContainer.replaceChildren(div);
   }
 
   const params = new URLSearchParams(window.location.search);
@@ -46,12 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  let pinString = '';
-  const pin = params.get('pin');
-  if (pin)
-    pinString = ` with pin code <b>"${pin}"</b>`;
-
-  showStatus('connecting', `MCP client <b>"${clientInfo}"</b> is trying to connect${pinString}. Do you want to continue?`);
+  showStatus('connecting', `MCP client "${clientInfo}" is trying to connect. Do you want to continue?`);
 
   rejectBtn.addEventListener('click', async () => {
     buttonRow.style.display = 'none';

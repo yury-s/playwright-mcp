@@ -15,7 +15,7 @@
  */
 
 export function debugLog(...args: unknown[]): void {
-  const enabled = false;
+  const enabled = true;
   if (enabled) {
     // eslint-disable-next-line no-console
     console.log('[Extension]', ...args);

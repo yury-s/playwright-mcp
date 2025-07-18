@@ -31,22 +31,21 @@ class TabShareExtension {
     chrome.runtime.onMessage.addListener(this._onMessage.bind(this));
   }
 
-  private async _onMessage(message: PageMessage, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
+  // Promise-based message handling is not supported in Chrome: https://issues.chromium.org/issues/40753031
+  private _onMessage(message: PageMessage, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
     switch (message.type) {
       case 'connectToMCPRelay':
         const tabId = sender.tab?.id;
         if (!tabId) {
           sendResponse({ success: false, error: 'No tab id' });
-          return;
+          return true;
         }
-        try {
-          await this._connectTab(tabId, message.mcpRelayUrl!);
-          sendResponse({ success: true });
-        } catch (error: any) {
-          sendResponse({ success: false, error: error.message });
-        }
-        return;
+        this._connectTab(tabId, message.mcpRelayUrl!).then(
+            () => sendResponse({ success: true }),
+            (error: any) => sendResponse({ success: false, error: error.message }));
+        return true; // Return true to indicate that the response will be sent asynchronously
     }
+    return false;
   }
 
   private async _connectTab(tabId: number, mcpRelayUrl: string): Promise<void> {
