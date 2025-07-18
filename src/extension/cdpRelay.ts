@@ -52,6 +52,8 @@ type CDPResponse = {
 };
 
 export class CDPRelayServer {
+  private _wsHost: string;
+  private _getClientInfo: () => { name: string, version: string };
   private _cdpPath: string;
   private _extensionPath: string;
   private _wss: WebSocketServer;
@@ -62,14 +64,17 @@ export class CDPRelayServer {
     // Page sessionId that should be used by this connection.
     sessionId: string;
   } | undefined;
-  private _connect: () => Promise<void>;
   private _extensionConnectionPromise: Promise<void>;
   private _extensionConnectionResolve: (() => void) | null = null;
 
-  constructor(server: http.Server, cdpPath: string, extensionPath: string, connect: () => Promise<void>) {
-    this._cdpPath = cdpPath;
-    this._extensionPath = extensionPath;
-    this._connect = connect;
+  constructor(server: http.Server, getClientInfo: () => { name: string, version: string }) {
+    this._getClientInfo = getClientInfo;
+    this._wsHost = httpAddressToString(server.address()).replace(/^http/, 'ws');
+
+    const uuid = crypto.randomUUID();
+    this._cdpPath = `/cdp/${uuid}`;
+    this._extensionPath = `/extension/${uuid}`;
+
     this._extensionConnectionPromise = new Promise(resolve => {
       this._extensionConnectionResolve = resolve;
     });
@@ -77,14 +82,38 @@ export class CDPRelayServer {
     this._wss.on('connection', this._onConnection.bind(this));
   }
 
+  cdpEndpoint() {
+    return `${this._wsHost}${this._cdpPath}`;
+  }
+
+  extensionEndpoint() {
+    return `${this._wsHost}${this._extensionPath}`;
+  }
+
   private async _verifyClient(info: { origin: string, req: http.IncomingMessage }, callback: (result: boolean) => void) {
     if (info.req.url?.startsWith(this._cdpPath)) {
-      await this._connect();
+      await this._connectBrowser();
       await this._extensionConnectionPromise;
       callback(!!this._extensionConnection);
       return;
     }
     callback(true);
+  }
+
+  private async _connectBrowser() {
+    const mcpRelayEndpoint = `${this._wsHost}${this._extensionPath}`;
+    // Need to specify "key" in the manifest.json to make the id stable when loading from file.
+    const url = new URL('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
+    url.searchParams.set('mcpRelayUrl', mcpRelayEndpoint);
+    url.searchParams.set('client', JSON.stringify(this._getClientInfo()));
+    const href = url.toString();
+    const command = `'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' '${href}'`;
+    console.error(`Running ${command}...`);
+    try {
+      await promisify(exec)(command);
+    } catch (err) {
+      console.error('Failed to run command:', err);
+    }
   }
 
   stop(): void {
@@ -266,38 +295,15 @@ export class CDPRelayServer {
 export async function startCDPRelayServer({
   getClientInfo,
   port,
-  pin,
 }: {
   getClientInfo: () => { name: string, version: string };
   port: number;
-  pin?: string;
 }) {
   const httpServer = await startHttpServer({ port });
-  const uuid = crypto.randomUUID();
-  const cdpPath = `/cdp/${uuid}`;
-  const extensionPath = `/extension/${uuid}`;
-  const wsAddress = httpAddressToString(httpServer.address()).replace(/^http/, 'ws');
-  const cdpEndpoint = `${wsAddress}${cdpPath}`;
-  const mcpRelayEndpoint = `${wsAddress}${extensionPath}`;
-  const cdpRelayServer = new CDPRelayServer(httpServer, cdpPath, extensionPath, async () => {
-    // Need to specify "key" in the manifest.json to make the id stable when loading from file.
-    const url = new URL('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
-    url.searchParams.set('mcpRelayUrl', mcpRelayEndpoint);
-    url.searchParams.set('client', JSON.stringify(getClientInfo()));
-    if (pin)
-      url.searchParams.set('pin', pin);
-    const href = url.toString();
-    const command = `'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' '${href}'`;
-    console.error(`Running ${command}...`);
-    try {
-      await promisify(exec)(command);
-    } catch (err) {
-      console.error('Failed to run command:', err);
-    }
-  });
+  const cdpRelayServer = new CDPRelayServer(httpServer, getClientInfo);
   process.on('exit', () => cdpRelayServer.stop());
-  console.error(`CDP relay server started on ${wsAddress}${extensionPath} - Connect to it using the browser extension.`);
-  return cdpEndpoint;
+  console.error(`CDP relay server started on ${cdpRelayServer.extensionEndpoint()} - Connect to it using the browser extension.`);
+  return cdpRelayServer.cdpEndpoint();
 }
 
 class ExtensionConnection {
