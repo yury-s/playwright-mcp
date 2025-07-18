@@ -27,7 +27,7 @@
     "ftest": "playwright test --project=firefox",
     "wtest": "playwright test --project=webkit",
     "run-server": "node lib/browserServer.js",
-    "clean": "rm -rf lib",
+    "clean": "rm -rf lib extension/lib",
     "npm-publish": "npm run clean && npm run build && npm run test && npm publish"
   },
   "exports": {

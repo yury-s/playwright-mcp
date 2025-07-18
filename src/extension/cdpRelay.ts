@@ -15,14 +15,12 @@
  */
 
 /**
- * Bridge Server - Standalone WebSocket server that bridges Playwright MCP and Chrome Extension
+ * WebSocket server that bridges Playwright MCP and Chrome Extension
  *
  * Endpoints:
- * - /cdp - Full CDP interface for Playwright MCP
- * - /extension - Extension connection for chrome.debugger forwarding
+ * - /cdp/guid - Full CDP interface for Playwright MCP
+ * - /extension/guid - Extension connection for chrome.debugger forwarding
  */
-
-/* eslint-disable no-console */
 
 import { WebSocket, WebSocketServer } from 'ws';
 import type websocket from 'ws';
@@ -30,8 +28,7 @@ import http from 'node:http';
 import debug from 'debug';
 import { promisify } from 'node:util';
 import { exec } from 'node:child_process';
-import { AddressInfo } from 'node:net';
-import assert from 'node:assert';
+import { httpAddressToString, startHttpServer } from '../transport.js';
 
 const debugLogger = debug('pw:mcp:relay');
 
@@ -57,9 +54,9 @@ export class CDPRelayServer {
   private _cdpPath: string;
   private _extensionPath: string;
   private _wss: WebSocketServer;
-  private _playwrightSocket: WebSocket | null = null;
+  private _playwrightConnection: WebSocket | null = null;
   private _extensionConnection: ExtensionConnection | null = null;
-  private _connectionInfo: {
+  private _connectedTabInfo: {
     targetInfo: any;
     // Page sessionId that should be used by this connection.
     sessionId: string;
@@ -90,8 +87,12 @@ export class CDPRelayServer {
     return `${this._wsHost}${this._extensionPath}`;
   }
 
-  private async _verifyClient(info: { origin: string, req: http.IncomingMessage }, callback: (result: boolean) => void) {
+  private async _verifyClient(info: { origin: string, req: http.IncomingMessage }, callback: (result: boolean, code?: number, message?: string) => void) {
     if (info.req.url?.startsWith(this._cdpPath)) {
+      if (this._playwrightConnection) {
+        callback(false, 500, 'Another Playwright connection already established');
+        return;
+      }
       await this._connectBrowser();
       await this._extensionConnectionPromise;
       callback(!!this._extensionConnection);
@@ -108,16 +109,15 @@ export class CDPRelayServer {
     url.searchParams.set('client', JSON.stringify(this._getClientInfo()));
     const href = url.toString();
     const command = `'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' '${href}'`;
-    console.error(`Running ${command}...`);
     try {
       await promisify(exec)(command);
     } catch (err) {
-      console.error('Failed to run command:', err);
+      debugLogger('Failed to run command:', err);
     }
   }
 
   stop(): void {
-    this._playwrightSocket?.close();
+    this._playwrightConnection?.close();
     this._extensionConnection?.close();
   }
 
@@ -134,16 +134,8 @@ export class CDPRelayServer {
     }
   }
 
-  /**
-   * Handle Playwright MCP connection - provides full CDP interface
-   */
   private _handlePlaywrightConnection(ws: WebSocket): void {
-    if (this._playwrightSocket?.readyState === WebSocket.OPEN) {
-      debugLogger('Closing previous Playwright connection');
-      this._playwrightSocket.close(1000, 'New connection established');
-    }
-    this._playwrightSocket = ws;
-    debugLogger('Playwright MCP connected');
+    this._playwrightConnection = ws;
     ws.on('message', async data => {
       try {
         const message = JSON.parse(data.toString());
@@ -153,25 +145,32 @@ export class CDPRelayServer {
       }
     });
     ws.on('close', () => {
-      if (this._playwrightSocket === ws) {
-        void this._detachDebugger();
-        this._playwrightSocket = null;
+      if (this._playwrightConnection === ws) {
+        this._playwrightConnection = null;
+        this._closeExtensionConnection();
+        debugLogger('Playwright MCP disconnected');
       }
-      debugLogger('Playwright MCP disconnected');
     });
     ws.on('error', error => {
       debugLogger('Playwright WebSocket error:', error);
     });
+    debugLogger('Playwright MCP connected');
   }
 
-  private async _detachDebugger() {
-    this._connectionInfo = undefined;
-    await this._extensionConnection?.send('detachFromTab', {});
+  private _closeExtensionConnection() {
+    this._connectedTabInfo = undefined;
+    this._extensionConnection?.close();
+    this._extensionConnection = null;
+    this._extensionConnectionPromise = new Promise(resolve => {
+      this._extensionConnectionResolve = resolve;
+    });
   }
 
   private _handleExtensionConnection(ws: WebSocket): void {
-    if (this._extensionConnection)
-      this._extensionConnection.close('New connection established');
+    if (this._extensionConnection) {
+      ws.close(1000, 'Another extension connection already established');
+      return;
+    }
     this._extensionConnection = new ExtensionConnection(ws);
     this._extensionConnection.onclose = c => {
       if (this._extensionConnection === c)
@@ -192,9 +191,7 @@ export class CDPRelayServer {
         break;
       case 'detachedFromTab':
         debugLogger('← Debugger detached from tab:', params);
-        this._connectionInfo = undefined;
-        this._extensionConnection?.close();
-        this._extensionConnection = null;
+        this._connectedTabInfo = undefined;
         break;
     }
   }
@@ -236,14 +233,14 @@ export class CDPRelayServer {
       case 'Target.setAutoAttach': {
         // Simulate auto-attach behavior with real target info
         if (!message.sessionId) {
-          this._connectionInfo = await this._extensionConnection!.send('attachToTab');
+          this._connectedTabInfo = await this._extensionConnection!.send('attachToTab');
           debugLogger('Simulating auto-attach for target:', message);
           this._sendToPlaywright({
             method: 'Target.attachedToTarget',
             params: {
-              sessionId: this._connectionInfo!.sessionId,
+              sessionId: this._connectedTabInfo!.sessionId,
               targetInfo: {
-                ...this._connectionInfo!.targetInfo,
+                ...this._connectedTabInfo!.targetInfo,
                 attached: true,
               },
               waitingForDebugger: false
@@ -261,7 +258,7 @@ export class CDPRelayServer {
         debugLogger('Target.getTargetInfo', message);
         this._sendToPlaywright({
           id: message.id,
-          result: this._connectionInfo?.targetInfo
+          result: this._connectedTabInfo?.targetInfo
         });
         return true;
       }
@@ -288,7 +285,7 @@ export class CDPRelayServer {
 
   private _sendToPlaywright(message: CDPResponse): void {
     debugLogger('→ Playwright:', `${message.method ?? `response(id=${message.id})`}`);
-    this._playwrightSocket?.send(JSON.stringify(message));
+    this._playwrightConnection?.send(JSON.stringify(message));
   }
 }
 
@@ -302,7 +299,7 @@ export async function startCDPRelayServer({
   const httpServer = await startHttpServer({ port });
   const cdpRelayServer = new CDPRelayServer(httpServer, getClientInfo);
   process.on('exit', () => cdpRelayServer.stop());
-  console.error(`CDP relay server started on ${cdpRelayServer.extensionEndpoint()} - Connect to it using the browser extension.`);
+  debugLogger(`CDP relay server started, extension endpoint: ${cdpRelayServer.extensionEndpoint()}.`);
   return cdpRelayServer.cdpEndpoint();
 }
 
@@ -385,28 +382,4 @@ class ExtensionConnection {
       callback.reject(new Error('WebSocket closed'));
     this._callbacks.clear();
   }
-}
-
-function httpAddressToString(address: string | AddressInfo | null): string {
-  assert(address, 'Could not bind server socket');
-  if (typeof address === 'string')
-    return address;
-  const resolvedPort = address.port;
-  let resolvedHost = address.family === 'IPv4' ? address.address : `[${address.address}]`;
-  if (resolvedHost === '0.0.0.0' || resolvedHost === '[::]')
-    resolvedHost = 'localhost';
-  return `http://${resolvedHost}:${resolvedPort}`;
-}
-
-async function startHttpServer(config: { host?: string, port?: number }): Promise<http.Server> {
-  const { host, port } = config;
-  const httpServer = http.createServer();
-  await new Promise<void>((resolve, reject) => {
-    httpServer.on('error', reject);
-    httpServer.listen(port, host, () => {
-      resolve();
-      httpServer.removeListener('error', reject);
-    });
-  });
-  return httpServer;
 }

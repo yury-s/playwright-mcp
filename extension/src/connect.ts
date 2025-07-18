@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         type: 'connectToMCPRelay',
         mcpRelayUrl
       });
-      if (response && response.success)
+      if (response?.success)
         showStatus('connected', `MCP client "${clientInfo}" connected.`);
       else
         showStatus('error', response?.error || `MCP client "${clientInfo}" failed to connect.`);

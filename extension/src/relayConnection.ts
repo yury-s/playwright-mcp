@@ -15,7 +15,7 @@
  */
 
 export function debugLog(...args: unknown[]): void {
-  const enabled = true;
+  const enabled = false;
   if (enabled) {
     // eslint-disable-next-line no-console
     console.log('[Extension]', ...args);
@@ -37,15 +37,13 @@ type ProtocolResponse = {
 };
 
 export class RelayConnection {
-  private _debuggee: chrome.debugger.Debuggee;
-  private _rootSessionId: string;
+  private _debuggee: chrome.debugger.Debuggee = {};
+  private _rootSessionId = '';
   private _ws: WebSocket;
   private _eventListener: (source: chrome.debugger.DebuggerSession, method: string, params: any) => void;
   private _detachListener: (source: chrome.debugger.Debuggee, reason: string) => void;
 
-  constructor(tabId: number, ws: WebSocket) {
-    this._debuggee = { tabId };
-    this._rootSessionId = `pw-tab-${tabId}`;
+  constructor(ws: WebSocket) {
     this._ws = ws;
     this._ws.onmessage = this._onMessage.bind(this);
     // Store listeners for cleanup
@@ -55,13 +53,23 @@ export class RelayConnection {
     chrome.debugger.onDetach.addListener(this._detachListener);
   }
 
+  setConnectedTabId(tabId: number | null): void {
+    if (!tabId) {
+      this._debuggee = { };
+      this._rootSessionId = '';
+      return;
+    }
+    this._debuggee = { tabId };
+    this._rootSessionId = `pw-tab-${tabId}`;
+  }
+
   close(message?: string): void {
     chrome.debugger.onEvent.removeListener(this._eventListener);
     chrome.debugger.onDetach.removeListener(this._detachListener);
     this._ws.close(1000, message || 'Connection closed');
   }
 
-  async detachDebugger(): Promise<void> {
+  private async _detachDebugger(): Promise<void> {
     await chrome.debugger.detach(this._debuggee);
   }
 
@@ -122,6 +130,8 @@ export class RelayConnection {
   }
 
   private async _handleCommand(message: ProtocolCommand): Promise<any> {
+    if (!this._debuggee.tabId)
+      throw new Error('No tab is connected. Please go to the Playwright MCP extension and select the tab you want to connect to.');
     if (message.method === 'attachToTab') {
       debugLog('Attaching debugger to tab:', this._debuggee);
       await chrome.debugger.attach(this._debuggee, '1.3');
@@ -133,7 +143,7 @@ export class RelayConnection {
     }
     if (message.method === 'detachFromTab') {
       debugLog('Detaching debugger from tab:', this._debuggee);
-      return await this.detachDebugger();
+      return await this._detachDebugger();
     }
     if (message.method === 'forwardCDPCommand') {
       const { sessionId, method, params } = message.params;
