@@ -29,7 +29,7 @@ import debug from 'debug';
 import { promisify } from 'node:util';
 import { exec } from 'node:child_process';
 import { httpAddressToString, startHttpServer } from '../transport.js';
-import { BrowserContextFactory, ConnectionContext } from '../browserContextFactory.js';
+import { BrowserContextFactory } from '../browserContextFactory.js';
 import { Browser, chromium, type BrowserContext } from 'playwright';
 
 const debugLogger = debug('pw:mcp:relay');
@@ -64,7 +64,6 @@ export class CDPRelayServer {
   } | undefined;
   private _extensionConnectionPromise: Promise<void>;
   private _extensionConnectionResolve: (() => void) | null = null;
-  private _mcpConnection: ConnectionContext | undefined;
 
   constructor(server: http.Server) {
     this._wsHost = httpAddressToString(server.address()).replace(/^http/, 'ws');
@@ -88,15 +87,10 @@ export class CDPRelayServer {
     return `${this._wsHost}${this._extensionPath}`;
   }
 
-  async ensureExtensionConnectionForMCPContext(connectionContext: ConnectionContext) {
-    if (this._mcpConnection === connectionContext)
-      return;
-    if (this._mcpConnection)
-      throw new Error('MCP connection already established. Only one connection is allowed.');
-    this._mcpConnection = connectionContext;
+  async ensureExtensionConnectionForMCPContext(clientInfo: { name: string, version: string }) {
     if (this._extensionConnection)
       return;
-    await this._connectBrowser(connectionContext.clientVersion!);
+    await this._connectBrowser(clientInfo);
     await this._extensionConnectionPromise;
   }
 
@@ -290,31 +284,30 @@ export class CDPRelayServer {
 
 class ExtensionContextFactory implements BrowserContextFactory {
   private _relay: CDPRelayServer;
-  private _connectionContext: ConnectionContext | undefined;
-  private _browser: Browser | undefined;
+  private _browserPromise: Promise<Browser> | undefined;
 
   constructor(relay: CDPRelayServer) {
     this._relay = relay;
   }
 
-  async createContext(connectionContext: ConnectionContext): Promise<{ browserContext: BrowserContext, close: () => Promise<void> }> {
-    if (this._connectionContext && this._connectionContext !== connectionContext)
-      throw new Error('MCP connection already established. Only one connection is allowed.');
-    this._connectionContext = connectionContext;
-    await this._relay.ensureExtensionConnectionForMCPContext(connectionContext);
-    this._browser = await chromium.connectOverCDP(this._relay.cdpEndpoint());
+  async createContext(clientInfo: { name: string, version: string }): Promise<{ browserContext: BrowserContext, close: () => Promise<void> }> {
+    // First call will establish the connection to the extension.
+    if (!this._browserPromise)
+      this._browserPromise = this._obtainBrowser(clientInfo);
+    const browser = await this._browserPromise;
     return {
-      browserContext: this._browser.contexts()[0],
+      browserContext: browser.contexts()[0],
       close: async () => {}
     };
   }
+
+  private async _obtainBrowser(clientInfo: { name: string, version: string }): Promise<Browser> {
+    await this._relay.ensureExtensionConnectionForMCPContext(clientInfo);
+    return await chromium.connectOverCDP(this._relay.cdpEndpoint());
+  }
 }
 
-export async function startCDPRelayServer({
-  port,
-}: {
-  port: number;
-}) {
+export async function startCDPRelayServer(port: number) {
   const httpServer = await startHttpServer({ port });
   const cdpRelayServer = new CDPRelayServer(httpServer);
   process.on('exit', () => cdpRelayServer.stop());

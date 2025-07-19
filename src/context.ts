@@ -24,7 +24,7 @@ import { outputFile } from './config.js';
 
 import type { ModalState, Tool, ToolActionResult } from './tools/tool.js';
 import type { FullConfig } from './config.js';
-import type { BrowserContextFactory, ConnectionContext } from './browserContextFactory.js';
+import type { BrowserContextFactory } from './browserContextFactory.js';
 
 type PendingAction = {
   dialogShown: ManualPromise<void>;
@@ -32,7 +32,7 @@ type PendingAction = {
 
 const testDebug = debug('pw:mcp:test');
 
-export class Context implements ConnectionContext {
+export class Context {
   readonly tools: Tool[];
   readonly config: FullConfig;
   private _browserContextPromise: Promise<{ browserContext: playwright.BrowserContext, close: () => Promise<void> }> | undefined;
@@ -336,7 +336,7 @@ ${code.join('\n')}
 
   private async _setupBrowserContext(): Promise<{ browserContext: playwright.BrowserContext, close: () => Promise<void> }> {
     // TODO: move to the browser context factory to make it based on isolation mode.
-    const result = await this._browserContextFactory.createContext(this);
+    const result = await this._browserContextFactory.createContext(this.clientVersion!);
     const { browserContext } = result;
     await this._setupRequestInterception(browserContext);
     for (const page of browserContext.pages())

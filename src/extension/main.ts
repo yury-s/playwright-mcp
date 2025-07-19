@@ -21,9 +21,7 @@ import { startCDPRelayServer } from './cdpRelay.js';
 
 export async function runWithExtension(options: any) {
   const config = await resolveCLIConfig({ });
-  const contextFactory = await startCDPRelayServer({
-    port: 9225,
-  });
+  const contextFactory = await startCDPRelayServer(9225);
 
   const server = new Server(config, contextFactory);
   server.setupExitWatchdog();
