@@ -28,7 +28,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import debug from 'debug';
 import * as playwright from 'playwright';
 import { httpAddressToString, startHttpServer } from '../transport.js';
-import { BrowserContextFactory } from '../browserContextFactory.js';
+import { BrowserContextFactory, findFreePort } from '../browserContextFactory.js';
 // @ts-ignore
 const { registry } = await import('playwright-core/lib/server/registry/index');
 
@@ -324,7 +324,8 @@ class ExtensionContextFactory implements BrowserContextFactory {
   }
 }
 
-export async function startCDPRelayServer(port: number, browserChannel: string) {
+export async function startCDPRelayServer(browserChannel: string) {
+  const port = await findFreePort();
   const httpServer = await startHttpServer({ port });
   const cdpRelayServer = new CDPRelayServer(httpServer, browserChannel);
   process.on('exit', () => cdpRelayServer.stop());
