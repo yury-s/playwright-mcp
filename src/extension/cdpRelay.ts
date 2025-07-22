@@ -28,10 +28,10 @@ import { WebSocket, WebSocketServer } from 'ws';
 import debug from 'debug';
 import * as playwright from 'playwright';
 import { httpAddressToString, startHttpServer } from '../transport.js';
-import { BrowserContextFactory, findFreePort } from '../browserContextFactory.js';
 // @ts-ignore
 const { registry } = await import('playwright-core/lib/server/registry/index');
 
+import type { BrowserContextFactory } from '../browserContextFactory.js';
 import type websocket from 'ws';
 
 const debugLogger = debug('pw:mcp:relay');
@@ -325,8 +325,7 @@ class ExtensionContextFactory implements BrowserContextFactory {
 }
 
 export async function startCDPRelayServer(browserChannel: string) {
-  const port = await findFreePort();
-  const httpServer = await startHttpServer({ port });
+  const httpServer = await startHttpServer({});
   const cdpRelayServer = new CDPRelayServer(httpServer, browserChannel);
   process.on('exit', () => cdpRelayServer.stop());
   debugLogger(`CDP relay server started, extension endpoint: ${cdpRelayServer.extensionEndpoint()}.`);
