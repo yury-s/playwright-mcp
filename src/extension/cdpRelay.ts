@@ -23,7 +23,7 @@
  */
 
 import http from 'http';
-import { spawn } from 'node:child_process';
+import { spawn } from 'child_process';
 import { WebSocket, WebSocketServer } from 'ws';
 import debug from 'debug';
 import * as playwright from 'playwright';
@@ -67,6 +67,7 @@ export class CDPRelayServer {
   } | undefined;
   private _extensionConnectionPromise: Promise<void>;
   private _extensionConnectionResolve: (() => void) | null = null;
+
   constructor(server: http.Server, browserChannel: string) {
     this._wsHost = httpAddressToString(server.address()).replace(/^http/, 'ws');
     this._browserChannel = browserChannel;
