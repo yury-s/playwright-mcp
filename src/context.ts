@@ -35,6 +35,7 @@ export class Context {
   clientVersion: { name: string; version: string; } | undefined;
 
   private static _allContexts: Set<Context> = new Set();
+  private _closeBrowserContextPromise: Promise<void> | undefined;
 
   constructor(tools: Tool[], config: FullConfig, browserContextFactory: BrowserContextFactory) {
     this.tools = tools;
@@ -138,6 +139,13 @@ export class Context {
   }
 
   async closeBrowserContext() {
+    if (!this._closeBrowserContextPromise)
+      this._closeBrowserContextPromise = this._closeBrowserContextImpl();
+    await this._closeBrowserContextPromise;
+    this._closeBrowserContextPromise = undefined;
+  }
+
+  private async _closeBrowserContextImpl() {
     if (!this._browserContextPromise)
       return;
 
@@ -183,6 +191,8 @@ export class Context {
   }
 
   private async _setupBrowserContext(): Promise<{ browserContext: playwright.BrowserContext, close: () => Promise<void> }> {
+    if (this._closeBrowserContextPromise)
+      throw new Error('Another browser context is being closed.');
     // TODO: move to the browser context factory to make it based on isolation mode.
     const result = await this._browserContextFactory.createContext(this.clientVersion!);
     const { browserContext } = result;

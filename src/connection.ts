@@ -78,7 +78,7 @@ export async function createMCPServer(config: FullConfig, browserContextFactory:
   };
 
   server.onclose = () => {
-    void context.closeBrowserContext().catch(logUnhandledError);
+    void context.dispose().catch(logUnhandledError);
   };
 
   return server;

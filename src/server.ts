@@ -25,7 +25,6 @@ import type { Server as McpServer } from '@modelcontextprotocol/sdk/server/index
 
 export class Server {
   readonly config: FullConfig;
-  private _connectionList: McpServer[] = [];
   private _browserConfig: FullConfig['browser'];
   private _contextFactory: BrowserContextFactory;
 
@@ -37,7 +36,6 @@ export class Server {
 
   async createConnection(transport: Transport): Promise<void> {
     const server = await createMCPServer(this.config, this._contextFactory);
-    this._connectionList.push(server);
     await server.connect(transport);
   }
 
@@ -48,10 +46,7 @@ export class Server {
         return;
       isExiting = true;
       setTimeout(() => process.exit(0), 15000);
-      await Promise.all([
-        Context.disposeAll(),
-        ...this._connectionList.map(connection => connection.close()),
-      ]);
+      await Context.disposeAll();
       process.exit(0);
     };
 
