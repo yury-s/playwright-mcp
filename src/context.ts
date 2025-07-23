@@ -34,11 +34,18 @@ export class Context {
   private _currentTab: Tab | undefined;
   clientVersion: { name: string; version: string; } | undefined;
 
+  private static _allContexts: Set<Context> = new Set();
+
   constructor(tools: Tool[], config: FullConfig, browserContextFactory: BrowserContextFactory) {
     this.tools = tools;
     this.config = config;
     this._browserContextFactory = browserContextFactory;
     testDebug('create context');
+    Context._allContexts.add(this);
+  }
+
+  static async disposeAll() {
+    await Promise.all([...Context._allContexts].map(context => context.dispose()));
   }
 
   tabs(): Tab[] {
@@ -127,10 +134,10 @@ export class Context {
     if (this._currentTab === tab)
       this._currentTab = this._tabs[Math.min(index, this._tabs.length - 1)];
     if (!this._tabs.length)
-      void this.close();
+      void this.closeBrowserContext();
   }
 
-  async close() {
+  async closeBrowserContext() {
     if (!this._browserContextPromise)
       return;
 
@@ -144,6 +151,11 @@ export class Context {
         await browserContext.tracing.stop();
       await close();
     });
+  }
+
+  async dispose() {
+    await this.closeBrowserContext();
+    Context._allContexts.delete(this);
   }
 
   private async _setupRequestInterception(context: playwright.BrowserContext) {
