@@ -23,6 +23,7 @@ import { allTools } from './tools.js';
 import { packageJSON } from './package.js';
 import { FullConfig } from './config.js';
 import { SessionLog } from './sessionLog.js';
+import { logUnhandledError } from './log.js';
 import type { BrowserContextFactory } from './browserContextFactory.js';
 
 export async function createConnection(config: FullConfig, browserContextFactory: BrowserContextFactory): Promise<Connection> {
@@ -85,10 +86,12 @@ export class Connection {
     this.server.oninitialized = () => {
       this.context.clientVersion = this.server.getClientVersion();
     };
+    this.server.onclose = () => {
+      void this.context.close().catch(logUnhandledError);
+    };
   }
 
   async close() {
     await this.server.close();
-    await this.context.close();
   }
 }

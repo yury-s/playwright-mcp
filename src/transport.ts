@@ -23,8 +23,6 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
-import { logUnhandledError } from './log.js';
-
 import type { AddressInfo } from 'node:net';
 import type { Server } from './server.js';
 
