@@ -30,6 +30,8 @@ import * as playwright from 'playwright';
 // @ts-ignore
 const { registry } = await import('playwright-core/lib/server/registry/index');
 import { httpAddressToString, startHttpServer } from '../httpServer.js';
+import { logUnhandledError } from '../log.js';
+import { ManualPromise } from '../manualPromise.js';
 import type { BrowserContextFactory } from '../browserContextFactory.js';
 import type websocket from 'ws';
 
@@ -65,9 +67,7 @@ export class CDPRelayServer {
     sessionId: string;
   } | undefined;
   private _nextSessionId: number = 1;
-  private _extensionConnectionPromise: Promise<void> | undefined;
-  private _extensionConnectionResolve: (() => void) | null = null;
-  private _extensionConnectionReject: ((reason: string) => void) | null = null;
+  private _extensionConnectionPromise!: ManualPromise<void>;
 
   constructor(server: http.Server, browserChannel: string) {
     this._wsHost = httpAddressToString(server.address()).replace(/^http/, 'ws');
@@ -165,20 +165,15 @@ export class CDPRelayServer {
 
   private _closeExtensionConnection(reason: string) {
     this._extensionConnection?.close(reason);
-    this._extensionConnectionReject?.(reason);
+    this._extensionConnectionPromise.reject(new Error(reason));
     this._resetExtensionConnection();
   }
 
   private _resetExtensionConnection() {
     this._connectedTabInfo = undefined;
     this._extensionConnection = null;
-    this._extensionConnectionPromise = new Promise((resolve, reject) => {
-      this._extensionConnectionResolve = resolve;
-      this._extensionConnectionReject = reject;
-    });
-    this._extensionConnectionPromise.catch(e => {
-      debugLogger('Extension connection failed', e);
-    });
+    this._extensionConnectionPromise = new ManualPromise();
+    void this._extensionConnectionPromise.catch(logUnhandledError);
   }
 
   private _closePlaywrightConnection(reason: string) {
@@ -201,7 +196,7 @@ export class CDPRelayServer {
       this._closePlaywrightConnection(`Extension disconnected: ${reason}`);
     };
     this._extensionConnection.onmessage = this._handleExtensionMessage.bind(this);
-    this._extensionConnectionResolve?.();
+    this._extensionConnectionPromise.resolve();
   }
 
   private _handleExtensionMessage(method: string, params: any) {
@@ -294,6 +289,7 @@ export class CDPRelayServer {
     this._playwrightConnection?.send(JSON.stringify(message));
   }
 }
+
 class ExtensionContextFactory implements BrowserContextFactory {
   private _relay: CDPRelayServer;
   private _browserPromise: Promise<playwright.Browser> | undefined;
