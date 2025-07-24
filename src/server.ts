@@ -21,7 +21,6 @@ import { contextFactory as defaultContextFactory } from './browserContextFactory
 import type { FullConfig } from './config.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { BrowserContextFactory } from './browserContextFactory.js';
-import type { Server as McpServer } from '@modelcontextprotocol/sdk/server/index.js';
 
 export class Server {
   readonly config: FullConfig;
