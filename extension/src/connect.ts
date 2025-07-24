@@ -23,12 +23,14 @@ interface TabInfo {
 }
 
 class ConnectPage {
-  private _pageListElement: HTMLElement;
+  private _tabList: HTMLElement;
+  private _tabListContainer: HTMLElement;
   private _statusContainer: HTMLElement;
   private _selectedTab: TabInfo | undefined;
 
   constructor() {
-    this._pageListElement = document.getElementById('page-list')!;
+    this._tabList = document.getElementById('tab-list')!;
+    this._tabListContainer = document.getElementById('tab-list-container')!;
     this._statusContainer = document.getElementById('status-container') as HTMLElement;
     this._addButtonHandlers();
     void this._loadTabs();
@@ -61,6 +63,7 @@ class ConnectPage {
 
     rejectBtn.addEventListener('click', async () => {
       buttonRow.style.display = 'none';
+      this._tabListContainer.style.display = 'none';
       this._showStatus('error', 'Connection rejected. This tab can be closed.');
     });
 
@@ -101,22 +104,23 @@ class ConnectPage {
   }
 
   private _populateTabList(tabs: TabInfo[], currentTabId: number): void {
-    this._pageListElement.replaceChildren();
+    this._tabList.replaceChildren();
     this._selectedTab = tabs.find(tab => tab.id === currentTabId);
 
     tabs.forEach((tab, index) => {
       const tabElement = this._createTabElement(tab);
-      this._pageListElement.appendChild(tabElement);
+      this._tabList.appendChild(tabElement);
     });
   }
 
   private _createTabElement(tab: TabInfo): HTMLElement {
-    const tabDiv = document.createElement('div');
-    tabDiv.className = 'tab-item';
+    const disabled = tab.url.startsWith('chrome://');
 
     const tabInfoDiv = document.createElement('div');
     tabInfoDiv.className = 'tab-info';
     tabInfoDiv.style.padding = '5px';
+    if (disabled)
+      tabInfoDiv.style.opacity = '0.5';
 
     const radioButton = document.createElement('input');
     radioButton.type = 'radio';
@@ -127,7 +131,7 @@ class ConnectPage {
       if (radioButton.checked)
         this._selectedTab = tab;
     });
-    if (tab.url.startsWith('chrome://'))
+    if (disabled)
       radioButton.disabled = true;
 
     const favicon = document.createElement('img');
@@ -153,8 +157,7 @@ class ConnectPage {
     tabInfoDiv.appendChild(title);
     tabInfoDiv.appendChild(url);
 
-    tabDiv.appendChild(tabInfoDiv);
-    return tabDiv;
+    return tabInfoDiv;
   }
 
   private _showStatus(type: 'connected' | 'error' | 'connecting', message: string) {
@@ -165,7 +168,4 @@ class ConnectPage {
   }
 }
 
-
-document.addEventListener('DOMContentLoaded', () => {
-  new ConnectPage();
-});
+new ConnectPage();
