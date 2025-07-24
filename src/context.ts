@@ -140,7 +140,7 @@ export class Context {
 
   async closeBrowserContext() {
     if (!this._closeBrowserContextPromise)
-      this._closeBrowserContextPromise = this._closeBrowserContextImpl();
+      this._closeBrowserContextPromise = this._closeBrowserContextImpl().catch(() => {});
     await this._closeBrowserContextPromise;
     this._closeBrowserContextPromise = undefined;
   }

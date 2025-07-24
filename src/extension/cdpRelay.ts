@@ -65,8 +65,9 @@ export class CDPRelayServer {
     sessionId: string;
   } | undefined;
   private _nextSessionId: number = 1;
-  private _extensionConnectionPromise: Promise<void>;
+  private _extensionConnectionPromise: Promise<void> | undefined;
   private _extensionConnectionResolve: (() => void) | null = null;
+  private _extensionConnectionReject: ((reason: string) => void) | null = null;
 
   constructor(server: http.Server, browserChannel: string) {
     this._wsHost = httpAddressToString(server.address()).replace(/^http/, 'ws');
@@ -76,9 +77,7 @@ export class CDPRelayServer {
     this._cdpPath = `/cdp/${uuid}`;
     this._extensionPath = `/extension/${uuid}`;
 
-    this._extensionConnectionPromise = new Promise(resolve => {
-      this._extensionConnectionResolve = resolve;
-    });
+    this._resetExtensionConnection();
     this._wss = new WebSocketServer({ server });
     this._wss.on('connection', this._onConnection.bind(this));
   }
@@ -166,14 +165,19 @@ export class CDPRelayServer {
 
   private _closeExtensionConnection(reason: string) {
     this._extensionConnection?.close(reason);
+    this._extensionConnectionReject?.(reason);
     this._resetExtensionConnection();
   }
 
   private _resetExtensionConnection() {
     this._connectedTabInfo = undefined;
     this._extensionConnection = null;
-    this._extensionConnectionPromise = new Promise(resolve => {
+    this._extensionConnectionPromise = new Promise((resolve, reject) => {
       this._extensionConnectionResolve = resolve;
+      this._extensionConnectionReject = reject;
+    });
+    this._extensionConnectionPromise.catch(e => {
+      debugLogger('Extension connection failed', e);
     });
   }
 
@@ -290,7 +294,6 @@ export class CDPRelayServer {
     this._playwrightConnection?.send(JSON.stringify(message));
   }
 }
-
 class ExtensionContextFactory implements BrowserContextFactory {
   private _relay: CDPRelayServer;
   private _browserPromise: Promise<playwright.Browser> | undefined;
@@ -323,10 +326,10 @@ class ExtensionContextFactory implements BrowserContextFactory {
   }
 }
 
-export async function startCDPRelayServer(browserChannel: string) {
+export async function startCDPRelayServer(browserChannel: string, abortController: AbortController) {
   const httpServer = await startHttpServer({});
   const cdpRelayServer = new CDPRelayServer(httpServer, browserChannel);
-  process.on('exit', () => cdpRelayServer.stop());
+  abortController.signal.addEventListener('abort', () => cdpRelayServer.stop());
   debugLogger(`CDP relay server started, extension endpoint: ${cdpRelayServer.extensionEndpoint()}.`);
   return new ExtensionContextFactory(cdpRelayServer);
 }
