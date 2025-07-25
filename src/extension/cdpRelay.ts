@@ -147,9 +147,9 @@ export class CDPRelayServer {
 
   private _handlePlaywrightConnection(ws: WebSocket): void {
     if (this._playwrightConnection) {
-      debugLogger('Closing existing connection as new connection is requested');
-      this._closePlaywrightConnection('Another client connection requested');
-      this._closeExtensionConnection('Another client connection requested');
+      debugLogger('Rejecting second Playwright connection');
+      ws.close(1000, 'Another CDP client already connected');
+      return;
     }
     this._playwrightConnection = ws;
     ws.on('message', async data => {
