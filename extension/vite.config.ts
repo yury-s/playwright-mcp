@@ -25,9 +25,6 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, 'lib/ui'),
     emptyOutDir: true,
-    assetsInlineLimit: 100000000,
-    chunkSizeWarningLimit: 100000000,
-    cssCodeSplit: false,
     minify: false,
     rollupOptions: {
       input: resolve(__dirname, 'connect.html'),
