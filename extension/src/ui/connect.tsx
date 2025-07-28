@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import './connect.css';
 
@@ -62,25 +62,21 @@ const ConnectApp: React.FC = () => {
       return;
     }
 
-    loadTabs();
+    void loadTabs();
   }, []);
 
   const loadTabs = async () => {
-    try {
-      const response = await chrome.runtime.sendMessage({ type: 'getTabs' });
-      if (response.success) {
-        setTabs(response.tabs);
-        const currentTab = response.tabs.find((tab: TabInfo) => tab.id === response.currentTabId);
-        setSelectedTab(currentTab);
-      } else {
-        setStatus({ type: 'error', message: 'Failed to load tabs: ' + response.error });
-      }
-    } catch (error) {
-      setStatus({ type: 'error', message: 'Failed to communicate with background script: ' + error });
+    const response = await chrome.runtime.sendMessage({ type: 'getTabs' });
+    if (response.success) {
+      setTabs(response.tabs);
+      const currentTab = response.tabs.find((tab: TabInfo) => tab.id === response.currentTabId);
+      setSelectedTab(currentTab);
+    } else {
+      setStatus({ type: 'error', message: 'Failed to load tabs: ' + response.error });
     }
   };
 
-  const handleContinue = async () => {
+  const handleContinue = useCallback(async () => {
     setShowButtons(false);
     setShowTabList(false);
 
@@ -111,29 +107,29 @@ const ConnectApp: React.FC = () => {
         message: `MCP client "${clientInfo}" failed to connect: ${e}`
       });
     }
-  };
+  }, [selectedTab, clientInfo, mcpRelayUrl]);
 
-  const handleReject = () => {
+  const handleReject = useCallback(() => {
     setShowButtons(false);
     setShowTabList(false);
     setStatus({ type: 'error', message: 'Connection rejected. This tab can be closed.' });
-  };
+  }, []);
 
   return (
-    <div className="app-container">
-      <div className="content-wrapper">
-        <h1 className="main-title">
+    <div className='app-container'>
+      <div className='content-wrapper'>
+        <h1 className='main-title'>
           Playwright MCP Extension
         </h1>
 
         {status && <StatusBanner type={status.type} message={status.message} />}
 
         {showButtons && (
-          <div className="button-container">
-            <Button variant="primary" onClick={handleContinue}>
+          <div className='button-container'>
+            <Button variant='primary' onClick={handleContinue}>
               Continue
             </Button>
-            <Button variant="default" onClick={handleReject}>
+            <Button variant='default' onClick={handleReject}>
               Reject
             </Button>
           </div>
@@ -142,11 +138,11 @@ const ConnectApp: React.FC = () => {
 
         {showTabList && (
           <div>
-            <h2 className="tab-section-title">
+            <h2 className='tab-section-title'>
               Select page to expose to MCP server:
             </h2>
             <div>
-              {tabs.map((tab) => (
+              {tabs.map(tab => (
                 <TabItem
                   key={tab.id}
                   tab={tab}
@@ -190,19 +186,19 @@ const TabItem: React.FC<{ tab: TabInfo; isSelected: boolean; onSelect: () => voi
   return (
     <div className={className} onClick={disabled ? undefined : onSelect}>
       <input
-        type="radio"
-        className="tab-radio"
+        type='radio'
+        className='tab-radio'
         checked={isSelected}
         disabled={disabled}
       />
       <img
         src={tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" fill="%23f6f8fa"/></svg>'}
-        alt=""
-        className="tab-favicon"
+        alt=''
+        className='tab-favicon'
       />
-      <div className="tab-content">
-        <div className="tab-title">{tab.title || 'Untitled'}</div>
-        <div className="tab-url">{tab.url}</div>
+      <div className='tab-content'>
+        <div className='tab-title'>{tab.title || 'Untitled'}</div>
+        <div className='tab-url'>{tab.url}</div>
       </div>
     </div>
   );

@@ -17,7 +17,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "build": "tsc",
-    "build:extension": "tsc --project extension && vite build extension",
+    "build:extension": "tsc --project extension && tsc --project extension && vite build extension",
     "lint": "npm run update-readme && eslint . && tsc --noEmit",
     "lint-fix": "eslint . --fix",
     "update-readme": "node utils/update-readme.js",
