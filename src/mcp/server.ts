@@ -16,7 +16,7 @@
 
 import { z } from 'zod';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, InitializedNotificationSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import type { ImageContent, Implementation, TextContent } from '@modelcontextprotocol/sdk/types.js';
@@ -80,13 +80,7 @@ export function createServer(backend: ServerBackend, runHeartbeat: boolean): Ser
     })) };
   });
 
-  let heartbeatRunning = false;
   server.setRequestHandler(CallToolRequestSchema, async request => {
-    if (runHeartbeat && !heartbeatRunning) {
-      heartbeatRunning = true;
-      startHeartbeat(server);
-    }
-
     const errorResult = (...messages: string[]) => ({
       content: [{ type: 'text', text: messages.join('\n') }],
       isError: true,
@@ -101,6 +95,9 @@ export function createServer(backend: ServerBackend, runHeartbeat: boolean): Ser
       return errorResult(String(error));
     }
   });
+
+  if (runHeartbeat)
+    server.setNotificationHandler(InitializedNotificationSchema, () => startHeartbeat(server));
 
   addServerListener(server, 'initialized', () => backend.serverInitialized?.(server.getClientVersion()));
   addServerListener(server, 'close', () => backend.serverClosed?.());
