@@ -16,9 +16,10 @@
 
 import debug from 'debug';
 import * as playwright from 'playwright';
-import type { BrowserContextFactory } from '../browserContextFactory.js';
 import { startHttpServer } from '../httpServer.js';
 import { CDPRelayServer } from './cdpRelay.js';
+
+import type { BrowserContextFactory } from '../browserContextFactory.js';
 
 const debugLogger = debug('pw:mcp:relay');
 
