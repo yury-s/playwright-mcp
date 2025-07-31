@@ -30,7 +30,6 @@ import type { Tool } from './tools/tool.js';
 export class BrowserServerBackend implements ServerBackend {
   name = 'Playwright';
   version = packageJSON.version;
-  onclose?: () => void;
 
   private _tools: Tool[];
   private _context: Context | undefined;
