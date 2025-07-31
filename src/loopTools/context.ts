@@ -46,7 +46,8 @@ export class Context {
   static async create(config: FullConfig) {
     const client = new Client({ name: 'Playwright Proxy', version: '1.0.0' });
     const browserContextFactory = contextFactory(config.browser);
-    const server = mcpServer.createServer(new BrowserServerBackend(config, browserContextFactory), false);
+    const backend = new BrowserServerBackend(config, browserContextFactory);
+    const server = mcpServer.createServer(() => backend, false);
     await client.connect(new InProcessTransport(server));
     await client.ping();
     return new Context(config, client);

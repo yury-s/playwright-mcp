@@ -52,5 +52,5 @@ export const allTools: Tool<any>[] = [
 ];
 
 export function filteredTools(config: FullConfig) {
-  return allTools.filter(tool => tool.capability.startsWith('core') || config.capabilities?.includes(tool.capability));
+  return allTools.filter(tool => tool.capability.startsWith('core') || tool.capability.startsWith('extension') || config.capabilities?.includes(tool.capability));
 }

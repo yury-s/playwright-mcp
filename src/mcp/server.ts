@@ -39,10 +39,12 @@ export type ToolSchema<Input extends z.Schema> = {
 
 export type ToolHandler = (toolName: string, params: any) => Promise<ToolResponse>;
 
+type BackendSwitcher = (backend: ServerBackend) => void;
+
 export interface ServerBackend {
   name: string;
   version: string;
-  initialize?(): Promise<void>;
+  initialize?(switchBackend: BackendSwitcher): Promise<void>;
   tools(): ToolSchema<any>[];
   callTool(schema: ToolSchema<any>, parsedArguments: any): Promise<ToolResponse>;
   serverInitialized?(version: ClientVersion | undefined): void;
@@ -52,21 +54,26 @@ export interface ServerBackend {
 export type ServerBackendFactory = () => ServerBackend;
 
 export async function connect(serverBackendFactory: ServerBackendFactory, transport: Transport, runHeartbeat: boolean) {
-  const backend = serverBackendFactory();
-  await backend.initialize?.();
-  const server = createServer(backend, runHeartbeat);
+  let backend = serverBackendFactory();
+  const switchBackend = (newBackend: ServerBackend) => {
+    console.error('switchBackend', backend.name, '->', newBackend.name);
+    backend = newBackend;
+  };
+  await backend.initialize?.(switchBackend);
+  const server = createServer(() => backend, runHeartbeat);
   await server.connect(transport);
 }
 
-export function createServer(backend: ServerBackend, runHeartbeat: boolean): Server {
+export function createServer(currentBackend: () => ServerBackend, runHeartbeat: boolean): Server {
+  const backend = currentBackend();
   const server = new Server({ name: backend.name, version: backend.version }, {
     capabilities: {
       tools: {},
     }
   });
 
-  const tools = backend.tools();
   server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const tools = currentBackend().tools();
     return { tools: tools.map(tool => ({
       name: tool.name,
       description: tool.description,
@@ -91,19 +98,20 @@ export function createServer(backend: ServerBackend, runHeartbeat: boolean): Ser
       content: [{ type: 'text', text: '### Result\n' + messages.join('\n') }],
       isError: true,
     });
+    const tools = currentBackend().tools();
     const tool = tools.find(tool => tool.name === request.params.name) as ToolSchema<any>;
     if (!tool)
       return errorResult(`Error: Tool "${request.params.name}" not found`);
 
     try {
-      return await backend.callTool(tool, tool.inputSchema.parse(request.params.arguments || {}));
+      return await currentBackend().callTool(tool, tool.inputSchema.parse(request.params.arguments || {}));
     } catch (error) {
       return errorResult(String(error));
     }
   });
 
-  addServerListener(server, 'initialized', () => backend.serverInitialized?.(server.getClientVersion()));
-  addServerListener(server, 'close', () => backend.serverClosed?.());
+  addServerListener(server, 'initialized', () => currentBackend().serverInitialized?.(server.getClientVersion()));
+  addServerListener(server, 'close', () => currentBackend().serverClosed?.());
   return server;
 }
 

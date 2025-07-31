@@ -21,11 +21,14 @@ import { Response } from './response.js';
 import { SessionLog } from './sessionLog.js';
 import { filteredTools } from './tools.js';
 import { packageJSON } from './package.js';
+import { ConnectTool } from './extension/connect_tool.js';
 
 import type { BrowserContextFactory } from './browserContextFactory.js';
 import type * as mcpServer from './mcp/server.js';
 import type { ServerBackend } from './mcp/server.js';
 import type { Tool } from './tools/tool.js';
+
+let num = 1;
 
 export class BrowserServerBackend implements ServerBackend {
   name = 'Playwright';
@@ -36,6 +39,7 @@ export class BrowserServerBackend implements ServerBackend {
   private _sessionLog: SessionLog | undefined;
   private _config: FullConfig;
   private _browserContextFactory: BrowserContextFactory;
+  id = num++;
 
   constructor(config: FullConfig, browserContextFactory: BrowserContextFactory) {
     this._config = config;
@@ -43,8 +47,9 @@ export class BrowserServerBackend implements ServerBackend {
     this._tools = filteredTools(config);
   }
 
-  async initialize() {
+  async initialize(switchBackend: (newBackend: ServerBackend) => void) {
     this._sessionLog = this._config.saveSession ? await SessionLog.create(this._config) : undefined;
+    this._tools.push(new ConnectTool(switchBackend));
     this._context = new Context(this._tools, this._config, this._browserContextFactory, this._sessionLog);
   }
 

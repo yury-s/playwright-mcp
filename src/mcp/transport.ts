@@ -75,8 +75,10 @@ async function handleSSE(serverBackendFactory: ServerBackendFactory, req: http.I
 async function handleStreamable(serverBackendFactory: ServerBackendFactory, req: http.IncomingMessage, res: http.ServerResponse, sessions: Map<string, StreamableHTTPServerTransport>) {
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
   if (sessionId) {
+    console.error('handleStreamable', req.method, sessionId);
     const transport = sessions.get(sessionId);
     if (!transport) {
+      console.error('   *** ', sessionId, 'not found');
       res.statusCode = 404;
       res.end('Session not found');
       return;
@@ -88,6 +90,7 @@ async function handleStreamable(serverBackendFactory: ServerBackendFactory, req:
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => crypto.randomUUID(),
       onsessioninitialized: async sessionId => {
+        console.error('on session initialized', sessionId);
         testDebug(`create http session: ${transport.sessionId}`);
         await mcpServer.connect(serverBackendFactory, transport, true);
         sessions.set(sessionId, transport);
@@ -97,6 +100,7 @@ async function handleStreamable(serverBackendFactory: ServerBackendFactory, req:
     transport.onclose = () => {
       if (!transport.sessionId)
         return;
+      console.error('onclose', transport.sessionId, new Error().stack);
       sessions.delete(transport.sessionId);
       testDebug(`delete http session: ${transport.sessionId}`);
     };
