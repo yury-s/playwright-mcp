@@ -69,7 +69,7 @@ program
       const config = await resolveCLIConfig(options);
 
       if (options.extension) {
-        await runWithExtension(config, abortController);
+        await runWithExtension(config, abortController.signal);
         return;
       }
       if (options.loopTools) {
