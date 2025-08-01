@@ -41,7 +41,9 @@ export class Context {
 
   private static _allContexts: Set<Context> = new Set();
   private _closeBrowserContextPromise: Promise<void> | undefined;
-  private _isRunningTool: boolean = false;
+  private _inputRecorder: InputRecorder | undefined;
+  private _sessionLog: SessionLog | undefined;
+  private _abortController = new AbortController();
 
   constructor(tools: Tool[], config: FullConfig, browserContextFactory: BrowserContextFactory, sessionLog: SessionLog | undefined) {
     this.tools = tools;
@@ -154,6 +156,7 @@ export class Context {
   }
 
   async dispose() {
+    this._abortController.abort('MCP context disposed');
     await this.closeBrowserContext();
     Context._allContexts.delete(this);
   }
@@ -186,7 +189,7 @@ export class Context {
     if (this._closeBrowserContextPromise)
       throw new Error('Another browser context is being closed.');
     // TODO: move to the browser context factory to make it based on isolation mode.
-    const result = await this._browserContextFactory.createContext(this.clientVersion!);
+    const result = await this._browserContextFactory.createContext(this.clientVersion!, this._abortController.signal);
     const { browserContext } = result;
     await this._setupRequestInterception(browserContext);
     if (this.sessionLog)

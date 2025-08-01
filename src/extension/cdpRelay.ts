@@ -30,6 +30,8 @@ import { httpAddressToString } from '../httpServer.js';
 import { logUnhandledError } from '../log.js';
 import { ManualPromise } from '../manualPromise.js';
 import type websocket from 'ws';
+import type { ClientInfo } from '../browserContextFactory.js';
+
 // @ts-ignore
 const { registry } = await import('playwright-core/lib/server/registry/index');
 
@@ -88,17 +90,20 @@ export class CDPRelayServer {
     return `${this._wsHost}${this._extensionPath}`;
   }
 
-  async ensureExtensionConnectionForMCPContext(clientInfo: { name: string, version: string }) {
+  async ensureExtensionConnectionForMCPContext(clientInfo: ClientInfo, abortSignal: AbortSignal) {
     debugLogger('Ensuring extension connection for MCP context');
     if (this._extensionConnection)
       return;
     await this._connectBrowser(clientInfo);
     debugLogger('Waiting for incoming extension connection');
-    await this._extensionConnectionPromise;
+    await Promise.race([
+      this._extensionConnectionPromise,
+      new Promise((_, reject) => abortSignal.addEventListener('abort', reject))
+    ]);
     debugLogger('Extension connection established');
   }
 
-  private async _connectBrowser(clientInfo: { name: string, version: string }) {
+  private async _connectBrowser(clientInfo: ClientInfo) {
     const mcpRelayEndpoint = `${this._wsHost}${this._extensionPath}`;
     // Need to specify "key" in the manifest.json to make the id stable when loading from file.
     const url = new URL('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/lib/ui/connect.html');

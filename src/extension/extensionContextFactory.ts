@@ -19,27 +19,26 @@ import * as playwright from 'playwright';
 import { startHttpServer } from '../httpServer.js';
 import { CDPRelayServer } from './cdpRelay.js';
 
-import type { BrowserContextFactory } from '../browserContextFactory.js';
+import type { BrowserContextFactory, ClientInfo } from '../browserContextFactory.js';
 
 const debugLogger = debug('pw:mcp:relay');
 
 export class ExtensionContextFactory implements BrowserContextFactory {
   private _browserChannel: string;
-  private _abortController: AbortController;
-  private _abortSignal: AbortSignal;
+  private _abortController: AbortController = new AbortController();
   private _relayPromise: Promise<CDPRelayServer> | undefined;
   private _browserPromise: Promise<playwright.Browser> | undefined;
 
-  constructor(browserChannel: string, abortSignal: AbortSignal) {
+  constructor(browserChannel: string) {
     this._browserChannel = browserChannel;
-    this._abortController = new AbortController();
-    this._abortSignal = AbortSignal.any([abortSignal, this._abortController.signal]);
   }
 
-  async createContext(clientInfo: { name: string, version: string }): Promise<{ browserContext: playwright.BrowserContext, close: () => Promise<void> }> {
+  async createContext(clientInfo: ClientInfo, abortSignal: AbortSignal): Promise<{ browserContext: playwright.BrowserContext, close: () => Promise<void> }> {
     // First call will establish the connection to the extension.
-    if (!this._browserPromise)
-      this._browserPromise = this._obtainBrowser(clientInfo);
+    if (!this._browserPromise) {
+      const signal = AbortSignal.any([abortSignal, this._abortController.signal]);
+      this._browserPromise = this._obtainBrowser(clientInfo, signal);
+    }
     const browser = await this._browserPromise;
     return {
       browserContext: browser.contexts()[0],
@@ -52,17 +51,18 @@ export class ExtensionContextFactory implements BrowserContextFactory {
   }
 
   dispose() {
+    debugLogger('dispose() called for extension context factory', new Error().stack);
     this._abortController.abort('Extension context factory disposed');
     this._browserPromise = undefined;
   }
 
-  private async _obtainBrowser(clientInfo: { name: string, version: string }): Promise<playwright.Browser> {
+  private async _obtainBrowser(clientInfo: ClientInfo, abortSignal: AbortSignal): Promise<playwright.Browser> {
     if (!this._relayPromise)
-      this._relayPromise = this._startRelay();
+      this._relayPromise = this._startRelay(abortSignal);
     const relay = await this._relayPromise;
 
-    this._abortSignal.throwIfAborted();
-    await relay.ensureExtensionConnectionForMCPContext(clientInfo);
+    abortSignal.throwIfAborted();
+    await relay.ensureExtensionConnectionForMCPContext(clientInfo, abortSignal);
     const browser = await playwright.chromium.connectOverCDP(relay.cdpEndpoint());
     browser.on('disconnected', () => {
       this._browserPromise = undefined;
@@ -71,14 +71,14 @@ export class ExtensionContextFactory implements BrowserContextFactory {
     return browser;
   }
 
-  private async _startRelay() {
+  private async _startRelay(abortSignal: AbortSignal) {
     const httpServer = await startHttpServer({});
     const cdpRelayServer = new CDPRelayServer(httpServer, this._browserChannel);
     debugLogger(`CDP relay server started, extension endpoint: ${cdpRelayServer.extensionEndpoint()}.`);
-    if (this._abortSignal.aborted)
+    if (abortSignal.aborted)
       cdpRelayServer.stop();
     else
-      this._abortSignal.addEventListener('abort', () => cdpRelayServer.stop());
+      abortSignal.addEventListener('abort', () => cdpRelayServer.stop());
     return cdpRelayServer;
   }
 }
