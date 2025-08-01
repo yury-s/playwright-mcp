@@ -41,8 +41,7 @@ export class Context {
 
   private static _allContexts: Set<Context> = new Set();
   private _closeBrowserContextPromise: Promise<void> | undefined;
-  private _inputRecorder: InputRecorder | undefined;
-  private _sessionLog: SessionLog | undefined;
+  private _isRunningTool: boolean = false;
   private _abortController = new AbortController();
 
   constructor(tools: Tool[], config: FullConfig, browserContextFactory: BrowserContextFactory, sessionLog: SessionLog | undefined) {
