@@ -25,7 +25,6 @@ const debugLogger = debug('pw:mcp:relay');
 
 export class ExtensionContextFactory implements BrowserContextFactory {
   private _browserChannel: string;
-  private _abortController: AbortController = new AbortController();
   private _relayPromise: Promise<CDPRelayServer> | undefined;
   private _browserPromise: Promise<playwright.Browser> | undefined;
 
@@ -35,10 +34,8 @@ export class ExtensionContextFactory implements BrowserContextFactory {
 
   async createContext(clientInfo: ClientInfo, abortSignal: AbortSignal): Promise<{ browserContext: playwright.BrowserContext, close: () => Promise<void> }> {
     // First call will establish the connection to the extension.
-    if (!this._browserPromise) {
-      const signal = AbortSignal.any([abortSignal, this._abortController.signal]);
-      this._browserPromise = this._obtainBrowser(clientInfo, signal);
-    }
+    if (!this._browserPromise)
+      this._browserPromise = this._obtainBrowser(clientInfo, abortSignal);
     const browser = await this._browserPromise;
     return {
       browserContext: browser.contexts()[0],
@@ -48,12 +45,6 @@ export class ExtensionContextFactory implements BrowserContextFactory {
         this._browserPromise = undefined;
       }
     };
-  }
-
-  dispose() {
-    debugLogger('dispose() called for extension context factory', new Error().stack);
-    this._abortController.abort('Extension context factory disposed');
-    this._browserPromise = undefined;
   }
 
   private async _obtainBrowser(clientInfo: ClientInfo, abortSignal: AbortSignal): Promise<playwright.Browser> {

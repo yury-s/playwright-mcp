@@ -74,7 +74,6 @@ export class BrowserServerBackend implements ServerBackend {
   }
 
   serverClosed() {
-    this._browserContextFactory.dispose?.();
     void this._context!.dispose().catch(logUnhandledError);
   }
 }
