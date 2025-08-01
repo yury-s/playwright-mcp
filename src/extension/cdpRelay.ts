@@ -94,7 +94,7 @@ export class CDPRelayServer {
     debugLogger('Ensuring extension connection for MCP context');
     if (this._extensionConnection)
       return;
-    await this._connectBrowser(clientInfo);
+    this._connectBrowser(clientInfo);
     debugLogger('Waiting for incoming extension connection');
     await Promise.race([
       this._extensionConnectionPromise,
@@ -103,7 +103,7 @@ export class CDPRelayServer {
     debugLogger('Extension connection established');
   }
 
-  private async _connectBrowser(clientInfo: ClientInfo) {
+  private _connectBrowser(clientInfo: ClientInfo) {
     const mcpRelayEndpoint = `${this._wsHost}${this._extensionPath}`;
     // Need to specify "key" in the manifest.json to make the id stable when loading from file.
     const url = new URL('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/lib/ui/connect.html');
