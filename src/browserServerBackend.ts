@@ -22,11 +22,18 @@ import { Response } from './response.js';
 import { SessionLog } from './sessionLog.js';
 import { filteredTools } from './tools.js';
 import { packageJSON } from './package.js';
+import { ContextSwitchTool } from './tools/contextSwitch.js';
 
 import type { BrowserContextFactory } from './browserContextFactory.js';
 import type * as mcpServer from './mcp/server.js';
 import type { ServerBackend } from './mcp/server.js';
 import type { Tool } from './tools/tool.js';
+
+export type FactoryList = {
+  name: string;
+  description: string;
+  factory: BrowserContextFactory;
+}[];
 
 export class BrowserServerBackend implements ServerBackend {
   name = 'Playwright';
@@ -38,10 +45,16 @@ export class BrowserServerBackend implements ServerBackend {
   private _config: FullConfig;
   private _browserContextFactory: BrowserContextFactory;
 
-  constructor(config: FullConfig, browserContextFactory: BrowserContextFactory) {
+  constructor(config: FullConfig, browserContextFactory: BrowserContextFactory | FactoryList) {
     this._config = config;
-    this._browserContextFactory = browserContextFactory;
     this._tools = filteredTools(config);
+    if (Array.isArray(browserContextFactory)) {
+      const factories: FactoryList = browserContextFactory;
+      this._tools.push(new ContextSwitchTool(factories, this._setContextFactory.bind(this)));
+      this._browserContextFactory = factories[0].factory;
+    } else {
+      this._browserContextFactory = browserContextFactory;
+    }
   }
 
   async initialize(server: mcpServer.Server): Promise<void> {
@@ -86,5 +99,17 @@ export class BrowserServerBackend implements ServerBackend {
 
   serverClosed() {
     void this._context!.dispose().catch(logUnhandledError);
+  }
+
+  private async _setContextFactory(newFactory: BrowserContextFactory) {
+    if (this._context) {
+      const options = {
+        ...this._context.options,
+        browserContextFactory: newFactory,
+      };
+      await this._context.dispose();
+      this._context = new Context(options);
+    }
+    this._browserContextFactory = newFactory;
   }
 }
