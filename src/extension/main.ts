@@ -22,6 +22,6 @@ import type { FullConfig } from '../config.js';
 
 export async function runWithExtension(config: FullConfig) {
   const contextFactory = new ExtensionContextFactory(config.browser.launchOptions.channel || 'chrome');
-  const serverBackendFactory = () => new BrowserServerBackend(config, contextFactory);
+  const serverBackendFactory = async () => BrowserServerBackend.create(config, contextFactory);
   await mcpTransport.start(serverBackendFactory, config.server);
 }

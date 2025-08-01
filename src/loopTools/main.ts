@@ -29,23 +29,24 @@ import type { Tool } from './tool.js';
 
 export async function runLoopTools(config: FullConfig) {
   dotenv.config();
-  const serverBackendFactory = () => new LoopToolsServerBackend(config);
+  const serverBackendFactory = () => LoopToolsServerBackend.create(config);
   await mcpTransport.start(serverBackendFactory, config.server);
 }
 
 class LoopToolsServerBackend implements ServerBackend {
   readonly name = 'Playwright';
   readonly version = packageJSON.version;
-  private _config: FullConfig;
   private _context: Context | undefined;
   private _tools: Tool<any>[] = [perform, snapshot];
 
-  constructor(config: FullConfig) {
-    this._config = config;
+
+  static async create(config: FullConfig) {
+    const context = await Context.create(config);
+    return new LoopToolsServerBackend(context);
   }
 
-  async initialize() {
-    this._context = await Context.create(this._config);
+  constructor(context: Context) {
+    this._context = context;
   }
 
   tools(): mcpServer.ToolSchema<any>[] {

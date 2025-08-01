@@ -25,42 +25,38 @@ import { packageJSON } from './package.js';
 import type { BrowserContextFactory } from './browserContextFactory.js';
 import type * as mcpServer from './mcp/server.js';
 import type { ServerBackend } from './mcp/server.js';
-import type { Tool } from './tools/tool.js';
 
 export class BrowserServerBackend implements ServerBackend {
   name = 'Playwright';
   version = packageJSON.version;
 
-  private _tools: Tool[];
-  private _context: Context | undefined;
-  private _sessionLog: SessionLog | undefined;
-  private _config: FullConfig;
-  private _browserContextFactory: BrowserContextFactory;
+  private _context: Context;
 
-  constructor(config: FullConfig, browserContextFactory: BrowserContextFactory) {
-    this._config = config;
-    this._browserContextFactory = browserContextFactory;
-    this._tools = filteredTools(config);
+  static async create(config: FullConfig, browserContextFactory: BrowserContextFactory) {
+    const tools = filteredTools(config);
+    const sessionLog = config.saveSession ? await SessionLog.create(config) : undefined;
+    const context = new Context(tools, config, browserContextFactory, sessionLog);
+    const backend = new BrowserServerBackend(context);
+    return backend;
   }
 
-  async initialize() {
-    this._sessionLog = this._config.saveSession ? await SessionLog.create(this._config) : undefined;
-    this._context = new Context(this._tools, this._config, this._browserContextFactory, this._sessionLog);
+  constructor(context: Context) {
+    this._context = context;
   }
 
   tools(): mcpServer.ToolSchema<any>[] {
-    return this._tools.map(tool => tool.schema);
+    return this._context.tools.map(tool => tool.schema);
   }
 
   async callTool(schema: mcpServer.ToolSchema<any>, parsedArguments: any) {
     const context = this._context!;
     const response = new Response(context, schema.name, parsedArguments);
-    const tool = this._tools.find(tool => tool.schema.name === schema.name)!;
+    const tool = context.tools.find(tool => tool.schema.name === schema.name)!;
     context.setRunningTool(true);
     try {
       await tool.handle(context, parsedArguments, response);
       await response.finish();
-      this._sessionLog?.logResponse(response);
+      context.sessionLog?.logResponse(response);
     } catch (error: any) {
       response.addError(String(error));
     } finally {
