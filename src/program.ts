@@ -24,7 +24,7 @@ import { packageJSON } from './package.js';
 import { createExtensionContextFactory, runWithExtension } from './extension/main.js';
 import { BrowserServerBackend, FactoryList } from './browserServerBackend.js';
 import { Context } from './context.js';
-import { BrowserContextFactory, contextFactory } from './browserContextFactory.js';
+import { contextFactory } from './browserContextFactory.js';
 import { runLoopTools } from './loopTools/main.js';
 
 program
@@ -78,23 +78,10 @@ program
         return;
       }
 
-      const browserContextFactory = contextFactory(config.browser);
-      let factories: BrowserContextFactory | FactoryList = browserContextFactory;
-      if (options.connectTool) {
-        const extensionContextFactory = createExtensionContextFactory(config);
-        factories = [
-          {
-            name: 'default',
-            description: 'Create a new browser context',
-            factory: browserContextFactory,
-          },
-          {
-            name: 'extension',
-            description: 'Connect to existing browser using Playwright MCP extension',
-            factory: extensionContextFactory,
-          },
-        ];
-      }
+      const browserContextFactory = contextFactory(config);
+      const factories: FactoryList = [browserContextFactory];
+      if (options.connectTool)
+        factories.push(createExtensionContextFactory(config));
       const serverBackendFactory = () => new BrowserServerBackend(config, factories);
       await mcpTransport.start(serverBackendFactory, config.server);
 
