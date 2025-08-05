@@ -122,7 +122,7 @@ const ConnectApp: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    chrome.runtime.onMessage.addListener((message) => {
+    chrome.runtime.onMessage.addListener(message => {
       if (message.type === 'connectionTimeout')
         handleReject();
     });
