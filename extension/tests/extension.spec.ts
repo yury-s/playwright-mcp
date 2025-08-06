@@ -66,6 +66,8 @@ const test = base.extend<{ browserWithExtension: BrowserWithExtension }>({
 test('navigate with extension', async ({ browserWithExtension, startClient, server }) => {
   const browserContext = await browserWithExtension.launch();
 
+  console.log(`Launched with user data dir: ${browserWithExtension.userDataDir}`);
+
   const { client } = await startClient({
     args: [`--connect-tool`],
     config: {
@@ -74,6 +76,8 @@ test('navigate with extension', async ({ browserWithExtension, startClient, serv
       }
     },
   });
+
+  console.log('Starting client with extension connection method');
 
   expect(await client.callTool({
     name: 'browser_connect',
@@ -84,6 +88,8 @@ test('navigate with extension', async ({ browserWithExtension, startClient, serv
     result: 'Successfully changed connection method.',
   });
 
+  console.log('Navigating to hello world page');
+
   const confirmationPagePromise = browserContext.waitForEvent('page', page => {
     return page.url().startsWith('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
   });
@@ -93,10 +99,16 @@ test('navigate with extension', async ({ browserWithExtension, startClient, serv
     arguments: { url: server.HELLO_WORLD },
   });
 
+  console.log('Waiting for confirmation page to appear');
+
   const selectorPage = await confirmationPagePromise;
+
+  console.log('Confirmation page appeared, clicking continue');
   await selectorPage.getByRole('button', { name: 'Continue' }).click();
 
+  console.log('Waiting for navigation response');
   expect(await navigateResponse).toHaveResponse({
     pageState: expect.stringContaining(`- generic [active] [ref=e1]: Hello, world!`),
   });
+  console.log('Navigation successful, test completed');
 });
