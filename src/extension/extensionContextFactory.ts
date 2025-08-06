@@ -57,12 +57,16 @@ export class ExtensionContextFactory implements BrowserContextFactory {
   }
 
   private async _startRelay(abortSignal: AbortSignal) {
+    console.error('Starting HTTP server');
     const httpServer = await startHttpServer({});
+    console.error('HTTP server started');
     if (abortSignal.aborted) {
+      console.error('HTTP server Aborted');
       httpServer.close();
       throw new Error(abortSignal.reason);
     }
     const cdpRelayServer = new CDPRelayServer(httpServer, this._browserChannel, this._userDataDir);
+    console.error('CDP relay server');
     abortSignal.addEventListener('abort', () => cdpRelayServer.stop());
     debugLogger(`CDP relay server started, extension endpoint: ${cdpRelayServer.extensionEndpoint()}.`);
     return cdpRelayServer;
