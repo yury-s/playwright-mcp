@@ -87,7 +87,7 @@ jobs:
   test_extension:
     strategy:
       fail-fast: false
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: ./extension
@@ -113,4 +113,10 @@ jobs:
         npm ci --prefix ..
         npx playwright install chromium
     - name: Run tests
-      run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- npm run test
+      run: |
+        if [[ "$(uname)" == "Linux" ]]; then
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- npm run test
+        else
+          npm run test
+        fi
+      shell: bash
