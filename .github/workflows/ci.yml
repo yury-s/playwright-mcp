@@ -108,5 +108,7 @@ jobs:
         name: extension
         path: ./extension/dist
         retention-days: 7
+    - name: Install parent dependencies
+      run: npm ci --prefix=..
     - name: Run tests
       run: npm run test
