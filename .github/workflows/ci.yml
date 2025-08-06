@@ -10,7 +10,9 @@ jobs:
   test_extension:
     strategy:
       fail-fast: false
-    runs-on: macos-latest
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: ./extension
@@ -45,3 +47,4 @@ jobs:
       shell: bash
       env:
         DEBUG: pw:browser
+        PWMCP_DEBUG: '1'
