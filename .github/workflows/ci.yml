@@ -48,5 +48,4 @@ jobs:
         fi
       shell: bash
       env:
-        DEBUG: pw:browser
         PWMCP_DEBUG: '1'

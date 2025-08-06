@@ -113,9 +113,11 @@ export class CDPRelayServer {
     url.searchParams.set('client', JSON.stringify(clientInfo));
     const href = url.toString();
     const executableInfo = registry.findExecutable(this._browserChannel);
+    console.error(`Connecting to MCP relay at ${mcpRelayEndpoint} using browser channel "${this._browserChannel}" found = ${!!executableInfo}`);
     if (!executableInfo)
       throw new Error(`Unsupported channel: "${this._browserChannel}"`);
     const executablePath = executableInfo.executablePath();
+    console.error(`executablePath=${executablePath}`);
     if (!executablePath)
       throw new Error(`"${this._browserChannel}" executable not found. Make sure it is installed at a standard location.`);
 
