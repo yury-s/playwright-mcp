@@ -36,7 +36,9 @@ export class ExtensionContextFactory implements BrowserContextFactory {
   }
 
   async createContext(clientInfo: ClientInfo, abortSignal: AbortSignal): Promise<{ browserContext: playwright.BrowserContext, close: () => Promise<void> }> {
+    console.error(`Creating extension context`);
     const browser = await this._obtainBrowser(clientInfo, abortSignal);
+    console.error(`Did obtain browser`);
     return {
       browserContext: browser.contexts()[0],
       close: async () => {
@@ -48,7 +50,9 @@ export class ExtensionContextFactory implements BrowserContextFactory {
 
   private async _obtainBrowser(clientInfo: ClientInfo, abortSignal: AbortSignal): Promise<playwright.Browser> {
     const relay = await this._startRelay(abortSignal);
+    console.error('did start relay');
     await relay.ensureExtensionConnectionForMCPContext(clientInfo, abortSignal);
+    console.error('did ensure extension connection');
     return await playwright.chromium.connectOverCDP(relay.cdpEndpoint());
   }
 

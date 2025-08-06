@@ -94,14 +94,18 @@ export class CDPRelayServer {
 
   async ensureExtensionConnectionForMCPContext(clientInfo: ClientInfo, abortSignal: AbortSignal) {
     debugLogger('Ensuring extension connection for MCP context');
+    console.error('ensureExtensionConnectionForMCPContext 1');
     if (this._extensionConnection)
       return;
+    console.error('ensureExtensionConnectionForMCPContext 2');
     this._connectBrowser(clientInfo);
+    console.error('ensureExtensionConnectionForMCPContext 3');
     debugLogger('Waiting for incoming extension connection');
     await Promise.race([
       this._extensionConnectionPromise,
       new Promise((_, reject) => abortSignal.addEventListener('abort', reject))
     ]);
+    console.error('ensureExtensionConnectionForMCPContext 4');
     debugLogger('Extension connection established');
   }
 
@@ -112,6 +116,7 @@ export class CDPRelayServer {
     url.searchParams.set('mcpRelayUrl', mcpRelayEndpoint);
     url.searchParams.set('client', JSON.stringify(clientInfo));
     const href = url.toString();
+    console.error('_connectBrowser', mcpRelayEndpoint);
     const executableInfo = registry.findExecutable(this._browserChannel);
     console.error(`Connecting to MCP relay at ${mcpRelayEndpoint} using browser channel "${this._browserChannel}" found = ${!!executableInfo}`);
     if (!executableInfo)
