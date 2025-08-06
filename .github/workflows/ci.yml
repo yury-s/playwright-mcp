@@ -84,7 +84,7 @@ jobs:
       env:
         MCP_IN_DOCKER: 1
 
-  build_extension:
+  text_extension:
     strategy:
       fail-fast: false
     runs-on: ubuntu-latest
@@ -108,3 +108,5 @@ jobs:
         name: extension
         path: ./extension/dist
         retention-days: 7
+    - name: Run tests
+      run: npm run test
