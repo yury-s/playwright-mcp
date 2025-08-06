@@ -30,7 +30,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: extension
+        name: extension-${{ matrix.os }}
         path: ./extension/dist
         retention-days: 7
     - name: Install and build MCP server

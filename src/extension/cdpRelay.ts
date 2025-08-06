@@ -124,11 +124,12 @@ export class CDPRelayServer {
       args.push(`--user-data-dir=${this._userDataDir}`);
     args.push(href);
 
+    console.error(`Launching browser ${executablePath} ${args.join(' ')}`);
     spawn(executablePath, args, {
       windowsHide: true,
       detached: true,
       shell: false,
-      stdio: 'ignore',
+      stdio: ['ignore', 'ignore', 'pipe'],
     });
   }
 
