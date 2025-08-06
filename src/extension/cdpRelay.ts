@@ -131,6 +131,7 @@ export class CDPRelayServer {
       shell: false,
       stdio: ['ignore', 'ignore', 'pipe'],
     });
+    console.error(`Browser launched, waiting for extension connection at ${mcpRelayEndpoint}`);
   }
 
   stop(): void {

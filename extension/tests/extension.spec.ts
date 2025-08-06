@@ -90,6 +90,9 @@ test('navigate with extension', async ({ browserWithExtension, startClient, serv
 
   console.log('Navigating to hello world page');
 
+  browserContext.on('page', page => {
+    console.log(`** New page opened: ${page.url()}`);
+  });
   const confirmationPagePromise = browserContext.waitForEvent('page', page => {
     return page.url().startsWith('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
   });
