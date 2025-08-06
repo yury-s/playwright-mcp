@@ -33,9 +33,11 @@ jobs:
         name: extension
         path: ./extension/dist
         retention-days: 7
-    - name: Install parent dependencies
+    - name: Install and build MCP server
       run: |
-        npm ci --prefix ..
+        cd ..
+        npm ci
+        npm run build
         npx playwright install chromium
     - name: Run tests
       run: |
