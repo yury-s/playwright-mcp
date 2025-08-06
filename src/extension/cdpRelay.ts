@@ -75,12 +75,16 @@ export class CDPRelayServer {
     this._browserChannel = browserChannel;
     this._userDataDir = userDataDir;
 
+    console.error('will create uuid', new Error().stack);
     const uuid = crypto.randomUUID();
+    console.error('did create uuid');
+
     this._cdpPath = `/cdp/${uuid}`;
     this._extensionPath = `/extension/${uuid}`;
 
     this._resetExtensionConnection();
     this._wss = new WebSocketServer({ server });
+    console.log('did create WebSocketServer', this._wss.options.port);
     this._wss.on('connection', this._onConnection.bind(this));
   }
 

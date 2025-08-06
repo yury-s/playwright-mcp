@@ -65,6 +65,7 @@ export class ExtensionContextFactory implements BrowserContextFactory {
       httpServer.close();
       throw new Error(abortSignal.reason);
     }
+    console.error('Will create relay server');
     const cdpRelayServer = new CDPRelayServer(httpServer, this._browserChannel, this._userDataDir);
     console.error('CDP relay server');
     abortSignal.addEventListener('abort', () => cdpRelayServer.stop());
