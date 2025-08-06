@@ -84,7 +84,7 @@ jobs:
       env:
         MCP_IN_DOCKER: 1
 
-  text_extension:
+  test_extension:
     strategy:
       fail-fast: false
     runs-on: ubuntu-latest
@@ -109,6 +109,8 @@ jobs:
         path: ./extension/dist
         retention-days: 7
     - name: Install parent dependencies
-      run: npm ci --prefix=..
+      run: |
+        npm ci --prefix ..
+        npx playwright install chromium
     - name: Run tests
       run: npm run test
