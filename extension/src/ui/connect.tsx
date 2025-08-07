@@ -53,7 +53,7 @@ const ConnectApp: React.FC = () => {
       setClientInfo(info);
       setStatus({
         type: 'connecting',
-        message: `MCP client "${info}" is trying to connect. Do you want to continue?`
+        message: `🎭 Playwright MCP started from  "${info}" is trying to connect. Do you want to continue?`
       });
     } catch (e) {
       setStatus({ type: 'error', message: 'Failed to parse client version.' });
@@ -126,10 +126,6 @@ const ConnectApp: React.FC = () => {
   return (
     <div className='app-container'>
       <div className='content-wrapper'>
-        <h1 className='main-title'>
-          Playwright MCP Extension
-        </h1>
-
         {status && (
           <div className='status-container'>
             <StatusBanner type={status.type} message={status.message} />
@@ -143,9 +139,9 @@ const ConnectApp: React.FC = () => {
 
         {showTabList && (
           <div>
-            <h2 className='tab-section-title'>
+            <div className='tab-section-title'>
               Select page to expose to MCP server:
-            </h2>
+            </div>
             <div>
               {tabs.map(tab => (
                 <TabItem

@@ -35,26 +35,6 @@ body {
   margin: 0 auto;
 }
 
-.main-title {
-  font-size: 24px;
-  font-weight: 400;
-  margin-bottom: 12px;
-  color: #1f2328;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.main-title::before {
-  content: "";
-  background-image: url('/icons/logo.svg');
-  background-size: contain;
-  background-repeat: no-repeat;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-}
-
 /* Status Banner */
 .status-container {
   display: flex;
@@ -92,15 +72,6 @@ body {
   margin-right: 8px;
 }
 
-.status-banner.connecting {
-  color: #1f2328;
-}
-
-.status-banner.connecting::before {
-  content: "\2139";
-  margin-right: 8px;
-}
-
 /* Buttons */
 .button-container {
   margin-bottom: 16px;
@@ -121,6 +92,7 @@ body {
   justify-content: center;
   text-decoration: none;
   margin-right: 8px;
+  min-width: 90px;
 }
 
 .button.primary {
@@ -157,10 +129,11 @@ body {
 
 /* Tab selection */
 .tab-section-title {
-  font-size: 16px;
+  padding-left: 12px;
+  font-size: 12px;
   font-weight: 400;
   margin-bottom: 12px;
-  color: #1f2328;
+  color: #656d76;
 }
 
 .tab-item {
