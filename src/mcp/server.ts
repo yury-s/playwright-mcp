@@ -55,14 +55,10 @@ export interface ServerBackend {
   serverClosed?(): void;
 }
 
-export type ServerBackendFactory = {
-  name: string;
-  description: string;
-  create(): ServerBackend;
-};
+export type ServerBackendFactory = () => ServerBackend;
 
 export async function connect(serverBackendFactory: ServerBackendFactory, transport: Transport, runHeartbeat: boolean) {
-  const backend = serverBackendFactory.create();
+  const backend = serverBackendFactory();
   const server = createServer(backend, runHeartbeat);
   await server.connect(transport);
 }
@@ -75,8 +71,8 @@ export function createServer(backend: ServerBackend, runHeartbeat: boolean): Ser
     }
   });
 
-  const tools = backend.tools();
   server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const tools = backend.tools();
     return { tools: tools.map(tool => ({
       name: tool.name,
       description: tool.description,
@@ -103,6 +99,7 @@ export function createServer(backend: ServerBackend, runHeartbeat: boolean): Ser
       content: [{ type: 'text', text: '### Result\n' + messages.join('\n') }],
       isError: true,
     });
+    const tools = backend.tools();
     const tool = tools.find(tool => tool.name === request.params.name) as ToolSchema<any>;
     if (!tool)
       return errorResult(`Error: Tool "${request.params.name}" not found`);

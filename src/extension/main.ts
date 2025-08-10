@@ -16,20 +16,20 @@
 
 import { ExtensionContextFactory } from './extensionContextFactory.js';
 import { BrowserServerBackend } from '../browserServerBackend.js';
+import { InProcessClientFactory } from '../mcp/inProcessClient.js';
 import * as mcpTransport from '../mcp/transport.js';
 
 import type { FullConfig } from '../config.js';
+import type { ClientFactory } from '../mcp/proxyBackend.js';
 
 export async function runWithExtension(config: FullConfig) {
-  await mcpTransport.start(createExtensionServerBackendFactory(config), config.server);
+  const contextFactory = createExtensionContextFactory(config);
+  const serverBackendFactory = () => new BrowserServerBackend(config, contextFactory);
+  await mcpTransport.start(serverBackendFactory, config.server);
 }
 
-export function createExtensionServerBackendFactory(config: FullConfig) {
-  return {
-    name: 'extension',
-    description: 'Connect to a browser using the Playwright MCP extension',
-    create: () => new BrowserServerBackend(config, createExtensionContextFactory(config)),
-  };
+export function createExtensionClientFactory(config: FullConfig): ClientFactory {
+  return new InProcessClientFactory(createExtensionContextFactory(config), config);
 }
 
 
