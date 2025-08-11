@@ -123,7 +123,7 @@ test('snapshot of an existing page', async ({ browserWithExtension, startClient,
   expect(await client.callTool({
     name: 'browser_connect',
     arguments: {
-      method: 'extension'
+      name: 'extension'
     }
   })).toHaveResponse({
     result: 'Successfully changed connection method.',
