@@ -39,21 +39,17 @@ export class ProxyBackend implements ServerBackend {
   version = packageJSON.version;
 
   private _clientFactories: ClientFactoryList;
-  private _currentFactory: ClientFactory;
   private _currentClient: Client | undefined;
   private _contextSwitchTool: Tool<any>;
-  private _server: Server | undefined;
   private _tools: ToolSchema<any>[] = [];
 
   constructor(clientFactories: ClientFactoryList) {
     this._clientFactories = clientFactories;
-    this._currentFactory = this._clientFactories[0];
     this._contextSwitchTool = this._defineContextSwitchTool();
   }
 
   async initialize(server: Server): Promise<void> {
-    this._server = server;
-    await this._setCurrentClient(this._currentFactory);
+    await this._setCurrentClient(this._clientFactories[0]);
   }
 
   tools(): ToolSchema<any>[] {
@@ -76,7 +72,6 @@ export class ProxyBackend implements ServerBackend {
   }
 
   serverClosed?(): void {
-    this._server = undefined;
     void this._currentClient?.close().catch(logUnhandledError);
   }
 
@@ -123,7 +118,6 @@ export class ProxyBackend implements ServerBackend {
 
   private async _setCurrentClient(factory: ClientFactory) {
     await this._currentClient?.close();
-    this._currentFactory = factory;
     this._currentClient = await factory.create();
     const tools = await this._currentClient.listTools();
     this._tools = tools.tools.map(tool => ({

@@ -30,7 +30,7 @@ import { InProcessClientFactory } from './inProcessClient.js';
 import { BrowserServerBackend } from './browserServerBackend.js';
 
 import type { ClientFactoryList } from './mcp/proxyBackend.js';
-import type { ServerBackend } from './mcp/server.js';
+import type { ServerBackendFactory } from './mcp/server.js';
 
 program
     .version('Version ' + packageJSON.version)
@@ -83,7 +83,7 @@ program
         return;
       }
 
-      let serverBackendFactory: () => ServerBackend;
+      let serverBackendFactory: ServerBackendFactory;
       if (options.connectTool) {
         const factories: ClientFactoryList = [
           new InProcessClientFactory(contextFactory(config), config),
