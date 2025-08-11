@@ -84,14 +84,15 @@ program
       }
 
       let serverBackendFactory: ServerBackendFactory;
+      const browserContextFactory = contextFactory(config);
       if (options.connectTool) {
         const factories: ClientFactoryList = [
-          new InProcessClientFactory(contextFactory(config), config),
+          new InProcessClientFactory(browserContextFactory, config),
           createExtensionClientFactory(config)
         ];
         serverBackendFactory = () => new ProxyBackend(factories);
       } else {
-        serverBackendFactory = () => new BrowserServerBackend(config, contextFactory(config));
+        serverBackendFactory = () => new BrowserServerBackend(config, browserContextFactory);
       }
       await mcpTransport.start(serverBackendFactory, config.server);
 
