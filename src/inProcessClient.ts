@@ -17,14 +17,14 @@
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { PingRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { BrowserContextFactory } from '../browserContextFactory.js';
-import { BrowserServerBackend } from '../browserServerBackend.js';
-import { packageJSON } from '../package.js';
-import { InProcessTransport } from './inProcessTransport.js';
-import * as mcpServer from './server.js';
+import { BrowserContextFactory } from './browserContextFactory.js';
+import { BrowserServerBackend } from './browserServerBackend.js';
+import { packageJSON } from './package.js';
+import { InProcessTransport } from './mcp/inProcessTransport.js';
+import * as mcpServer from './mcp/server.js';
 
-import type { ClientFactory } from './proxyBackend.js';
-import type { FullConfig } from '../config.js';
+import type { ClientFactory } from './mcp/proxyBackend.js';
+import type { FullConfig } from './config.js';
 
 export class InProcessClientFactory implements ClientFactory {
   name: string;

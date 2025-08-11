@@ -51,7 +51,7 @@ export interface ServerBackend {
   version: string;
   initialize?(server: Server): Promise<void>;
   tools(): ToolSchema<any>[];
-  callTool(schema: ToolSchema<any>, parsedArguments: any): Promise<ToolResponse>;
+  callTool(schema: ToolSchema<any>, rawArguments: any): Promise<ToolResponse>;
   serverClosed?(): void;
 }
 
@@ -105,7 +105,7 @@ export function createServer(backend: ServerBackend, runHeartbeat: boolean): Ser
       return errorResult(`Error: Tool "${request.params.name}" not found`);
 
     try {
-      return await backend.callTool(tool, tool.inputSchema.parse(request.params.arguments || {}));
+      return await backend.callTool(tool, request.params.arguments || {});
     } catch (error) {
       return errorResult(String(error));
     }

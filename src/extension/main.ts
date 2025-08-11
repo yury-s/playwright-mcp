@@ -16,7 +16,7 @@
 
 import { ExtensionContextFactory } from './extensionContextFactory.js';
 import { BrowserServerBackend } from '../browserServerBackend.js';
-import { InProcessClientFactory } from '../mcp/inProcessClient.js';
+import { InProcessClientFactory } from '../inProcessClient.js';
 import * as mcpTransport from '../mcp/transport.js';
 
 import type { FullConfig } from '../config.js';

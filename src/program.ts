@@ -26,9 +26,11 @@ import { Context } from './context.js';
 import { contextFactory } from './browserContextFactory.js';
 import { runLoopTools } from './loopTools/main.js';
 import { ProxyBackend } from './mcp/proxyBackend.js';
-import { InProcessClientFactory } from './mcp/inProcessClient.js';
+import { InProcessClientFactory } from './inProcessClient.js';
+import { BrowserServerBackend } from './browserServerBackend.js';
 
 import type { ClientFactoryList } from './mcp/proxyBackend.js';
+import type { ServerBackend } from './mcp/server.js';
 
 program
     .version('Version ' + packageJSON.version)
@@ -80,10 +82,17 @@ program
         await runLoopTools(config);
         return;
       }
-      const factories: ClientFactoryList = [new InProcessClientFactory(contextFactory(config), config)];
-      if (options.connectTool)
-        factories.push(createExtensionClientFactory(config));
-      const serverBackendFactory = () => new ProxyBackend(factories);
+
+      let serverBackendFactory: () => ServerBackend;
+      if (options.connectTool) {
+        const factories: ClientFactoryList = [
+          new InProcessClientFactory(contextFactory(config), config),
+          createExtensionClientFactory(config)
+        ];
+        serverBackendFactory = () => new ProxyBackend(factories);
+      } else {
+        serverBackendFactory = () => new BrowserServerBackend(config, contextFactory(config));
+      }
       await mcpTransport.start(serverBackendFactory, config.server);
 
       if (config.saveTrace) {

@@ -65,10 +65,13 @@ export class ProxyBackend implements ServerBackend {
     ];
   }
 
-  async callTool(schema: ToolSchema<any>, parsedArguments: any): Promise<ToolResponse> {
+  async callTool(schema: ToolSchema<any>, rawArguments: any): Promise<ToolResponse> {
     if (schema.name === this._contextSwitchTool.schema.name)
-      return this._callContextSwitchTool(parsedArguments);
-    const result = await this._currentClient!.callTool(schema, parsedArguments);
+      return this._callContextSwitchTool(rawArguments);
+    const result = await this._currentClient!.callTool({
+      name: schema.name,
+      arguments: rawArguments,
+    });
     return result as unknown as ToolResponse;
   }
 
@@ -123,7 +126,6 @@ export class ProxyBackend implements ServerBackend {
     this._currentFactory = factory;
     this._currentClient = await factory.create();
     const tools = await this._currentClient.listTools();
-    // TODO: avoid calling inputSchema.parse() on the tools.
     this._tools = tools.tools.map(tool => ({
       name: tool.name,
       title: tool.title ?? '',
