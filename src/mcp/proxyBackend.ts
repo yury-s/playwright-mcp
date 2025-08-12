@@ -108,7 +108,7 @@ export class ProxyBackend implements ServerBackend {
       annotations: {
         title: 'Connect to a browser context',
         readOnlyHint: true,
-        openWorldHint: true,
+        openWorldHint: false,
       },
     };
   }
