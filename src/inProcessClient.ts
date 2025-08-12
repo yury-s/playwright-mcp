@@ -20,11 +20,11 @@ import { ListRootsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { BrowserContextFactory } from './browserContextFactory.js';
 import { BrowserServerBackend } from './browserServerBackend.js';
 import { InProcessTransport } from './mcp/inProcessTransport.js';
+import { packageJSON } from './package.js';
 import * as mcpServer from './mcp/server.js';
 
-import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import type { FullConfig } from './config.js';
-import type { ClientFactory } from './mcp/proxyBackend.js';
+import type { BackendClient, ClientFactory } from './mcp/proxyBackend.js';
 
 export class InProcessClientFactory implements ClientFactory {
   name: string;
@@ -40,21 +40,17 @@ export class InProcessClientFactory implements ClientFactory {
     this._config = config;
   }
 
-  async create(server: Server): Promise<Client> {
-    const client = new Client(server.getClientVersion() ?? { name: 'unknown', version: 'unknown' });
-    const clientCapabilities = server.getClientCapabilities();
-    if (clientCapabilities)
-      client.registerCapabilities(clientCapabilities);
-
-    if (clientCapabilities?.roots) {
-      client.setRequestHandler(ListRootsRequestSchema, async () => {
-        return await server.listRoots();
-      });
-    }
+  async create(backendClient: BackendClient): Promise<Client> {
+    const client = new Client({ name: 'Playwright MCP Proxy', version: packageJSON.version });
+    client.registerCapabilities({
+      roots: {
+        listRoots: true,
+      },
+    });
+    client.setRequestHandler(ListRootsRequestSchema, async () => backendClient.listRoots());
 
     const delegate = mcpServer.createServer(new BrowserServerBackend(this._config, this._contextFactory), false);
     await client.connect(new InProcessTransport(delegate));
-    await client.ping();
     return client;
   }
 }

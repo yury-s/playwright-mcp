@@ -14,22 +14,26 @@
  * limitations under the License.
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import { logUnhandledError } from '../utils/log.js';
 import { packageJSON } from '../utils/package.js';
-import { ToolDefinition, ServerBackend, ToolResponse } from './server.js';
 
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import type { ToolDefinition, ServerBackend, ToolResponse } from './server.js';
 
 type NonEmptyArray<T> = [T, ...T[]];
+
+export type BackendClient = {
+  listRoots: () => Promise<{ roots: { uri: string }[] }>;
+};
 
 export type ClientFactory = {
   name: string;
   description: string;
-  create(server: Server): Promise<Client>;
+  create(backendClient: BackendClient): Promise<Client>;
 };
 
 export type ClientFactoryList = NonEmptyArray<ClientFactory>;
@@ -115,7 +119,22 @@ export class ProxyBackend implements ServerBackend {
 
   private async _setCurrentClient(factory: ClientFactory) {
     await this._currentClient?.close();
-    this._currentClient = await factory.create(this._server!);
+
+    const backendClient: BackendClient = {
+      listRoots: async () => {
+        const clientName = this._server!.getClientVersion()?.name;
+        if (this._server!.getClientCapabilities()?.roots && (
+          clientName === 'Visual Studio Code' ||
+          clientName === 'Visual Studio Code - Insiders')) {
+          const { roots } = await this._server!.listRoots();
+          console.error('  => listRoots roots', roots);
+          return { roots };
+        }
+        return { roots: [] };
+      },
+    };
+
+    this._currentClient = await factory.create(backendClient);
     const tools = await this._currentClient.listTools();
     this._tools = tools.tools;
   }
