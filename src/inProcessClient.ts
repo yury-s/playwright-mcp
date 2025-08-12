@@ -46,9 +46,11 @@ export class InProcessClientFactory implements ClientFactory {
     if (clientCapabilities)
       client.registerCapabilities(clientCapabilities);
 
-    client.setRequestHandler(ListRootsRequestSchema, async () => {
-      return await server.listRoots();
-    });
+    if (clientCapabilities?.roots) {
+      client.setRequestHandler(ListRootsRequestSchema, async () => {
+        return await server.listRoots();
+      });
+    }
 
     const delegate = mcpServer.createServer(new BrowserServerBackend(this._config, this._contextFactory), false);
     await client.connect(new InProcessTransport(delegate));
