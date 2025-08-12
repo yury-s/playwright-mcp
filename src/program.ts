@@ -86,15 +86,12 @@ program
 
       let serverBackendFactory: ServerBackendFactory;
       const browserContextFactory = contextFactory(config);
-      if (options.connectTool) {
-        const factories: ClientFactoryList = [
-          new InProcessClientFactory(browserContextFactory, config),
-          new InProcessClientFactory(createExtensionContextFactory(config), config),
-        ];
-        serverBackendFactory = () => new ProxyBackend(factories);
-      } else {
-        serverBackendFactory = () => new BrowserServerBackend(config, browserContextFactory);
-      }
+      const factories: ClientFactoryList = [
+        new InProcessClientFactory(browserContextFactory, config),
+      ];
+      if (options.connectTool)
+        factories.push(new InProcessClientFactory(createExtensionContextFactory(config), config));
+      serverBackendFactory = () => new ProxyBackend(factories);
       await mcpTransport.start(serverBackendFactory, config.server);
     });
 
