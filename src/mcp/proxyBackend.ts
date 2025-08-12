@@ -17,7 +17,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
 import { z } from 'zod';
-import { ServerBackend, ToolResponse, ToolSchema } from './server.js';
+import { ServerBackend, ToolDefinition, ToolResponse, ToolSchema, toToolDefinition } from './server.js';
 import { defineTool, Tool } from '../tools/tool.js';
 import { packageJSON } from '../package.js';
 import { logUnhandledError } from '../log.js';
@@ -41,7 +41,7 @@ export class ProxyBackend implements ServerBackend {
   private _clientFactories: ClientFactoryList;
   private _currentClient: Client | undefined;
   private _contextSwitchTool: Tool<any>;
-  private _tools: ToolSchema<any>[] = [];
+  private _tools: ToolDefinition[] = [];
   private _server: Server | undefined;
 
   constructor(clientFactories: ClientFactoryList) {
@@ -54,20 +54,20 @@ export class ProxyBackend implements ServerBackend {
     await this._setCurrentClient(this._clientFactories[0]);
   }
 
-  tools(): ToolSchema<any>[] {
+  tools(): ToolDefinition[] {
     if (this._clientFactories.length === 1)
       return this._tools;
     return [
       ...this._tools,
-      this._contextSwitchTool.schema,
+      toToolDefinition(this._contextSwitchTool.schema),
     ];
   }
 
-  async callTool(schema: ToolSchema<any>, rawArguments: any): Promise<ToolResponse> {
-    if (schema.name === this._contextSwitchTool.schema.name)
+  async callTool(name: string, rawArguments: any): Promise<ToolResponse> {
+    if (name === this._contextSwitchTool.schema.name)
       return this._callContextSwitchTool(rawArguments);
     const result = await this._currentClient!.callTool({
-      name: schema.name,
+      name,
       arguments: rawArguments,
     });
     return result as unknown as ToolResponse;
@@ -126,7 +126,7 @@ export class ProxyBackend implements ServerBackend {
       name: tool.name,
       title: tool.title ?? '',
       description: tool.description ?? '',
-      inputSchema: tool.inputSchema ?? z.object({}),
+      inputJsonSchema: tool.inputSchema ?? {},
       type: tool.annotations?.readOnlyHint ? 'readOnly' as const : 'destructive' as const,
     }));
   }

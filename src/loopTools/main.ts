@@ -48,13 +48,13 @@ class LoopToolsServerBackend implements ServerBackend {
     this._context = await Context.create(this._config);
   }
 
-  tools(): mcpServer.ToolSchema<any>[] {
-    return this._tools.map(tool => tool.schema);
+  tools(): mcpServer.ToolDefinition[] {
+    return this._tools.map(tool => mcpServer.toToolDefinition(tool.schema));
   }
 
-  async callTool(schema: mcpServer.ToolSchema<any>, rawArguments: any): Promise<mcpServer.ToolResponse> {
-    const tool = this._tools.find(tool => tool.schema.name === schema.name)!;
-    const parsedArguments = schema.inputSchema.parse(rawArguments || {});
+  async callTool(name: string, rawArguments: any): Promise<mcpServer.ToolResponse> {
+    const tool = this._tools.find(tool => tool.schema.name === name)!;
+    const parsedArguments = tool.schema.inputSchema.parse(rawArguments || {});
     return await tool.handle(this._context!, parsedArguments);
   }
 

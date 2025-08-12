@@ -44,15 +44,27 @@ export type ToolSchema<Input extends z.Schema> = {
   type: 'readOnly' | 'destructive';
 };
 
+export type ToolDefinition = Omit<ToolSchema<any>, 'inputSchema'> & { inputJsonSchema: any };
+
 export type ToolHandler = (toolName: string, params: any) => Promise<ToolResponse>;
 
 export interface ServerBackend {
   name: string;
   version: string;
   initialize?(server: Server): Promise<void>;
-  tools(): ToolSchema<any>[];
-  callTool(schema: ToolSchema<any>, rawArguments: any): Promise<ToolResponse>;
+  tools(): ToolDefinition[];
+  callTool(name: string, rawArguments: any): Promise<ToolResponse>;
   serverClosed?(): void;
+}
+
+export function toToolDefinition(tool: ToolSchema<any>): ToolDefinition {
+  return {
+    name: tool.name,
+    title: tool.title,
+    description: tool.description,
+    inputJsonSchema: zodToJsonSchema(tool.inputSchema),
+    type: tool.type,
+  };
 }
 
 export type ServerBackendFactory = () => ServerBackend;
@@ -76,7 +88,7 @@ export function createServer(backend: ServerBackend, runHeartbeat: boolean): Ser
     return { tools: tools.map(tool => ({
       name: tool.name,
       description: tool.description,
-      inputSchema: tool.inputSchema instanceof z.ZodType ? zodToJsonSchema(tool.inputSchema) : tool.inputSchema,
+      inputSchema: tool.inputJsonSchema,
       annotations: {
         title: tool.title,
         readOnlyHint: tool.type === 'readOnly',
@@ -100,12 +112,12 @@ export function createServer(backend: ServerBackend, runHeartbeat: boolean): Ser
       isError: true,
     });
     const tools = backend.tools();
-    const tool = tools.find(tool => tool.name === request.params.name) as ToolSchema<any>;
+    const tool = tools.find(tool => tool.name === request.params.name);
     if (!tool)
       return errorResult(`Error: Tool "${request.params.name}" not found`);
 
     try {
-      return await backend.callTool(tool, request.params.arguments || {});
+      return await backend.callTool(tool.name, request.params.arguments || {});
     } catch (error) {
       return errorResult(String(error));
     }
