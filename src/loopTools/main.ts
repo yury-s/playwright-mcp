@@ -22,6 +22,7 @@ import { packageJSON } from '../package.js';
 import { Context } from './context.js';
 import { perform } from './perform.js';
 import { snapshot } from './snapshot.js';
+import { toToolDefinition } from '../tools/tool.js';
 
 import type { FullConfig } from '../config.js';
 import type { ServerBackend } from '../mcp/server.js';
@@ -49,7 +50,7 @@ class LoopToolsServerBackend implements ServerBackend {
   }
 
   tools(): mcpServer.ToolDefinition[] {
-    return this._tools.map(tool => mcpServer.toToolDefinition(tool.schema));
+    return this._tools.map(tool => toToolDefinition(tool.schema));
   }
 
   async callTool(name: string, rawArguments: any): Promise<mcpServer.ToolResponse> {

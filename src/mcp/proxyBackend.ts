@@ -15,12 +15,12 @@
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-
 import { z } from 'zod';
-import { ServerBackend, ToolDefinition, ToolResponse, ToolSchema, toToolDefinition } from './server.js';
-import { defineTool, Tool } from '../tools/tool.js';
-import { packageJSON } from '../package.js';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+
 import { logUnhandledError } from '../log.js';
+import { packageJSON } from '../package.js';
+import { ToolDefinition, ServerBackend, ToolResponse } from './server.js';
 
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
@@ -40,7 +40,7 @@ export class ProxyBackend implements ServerBackend {
 
   private _clientFactories: ClientFactoryList;
   private _currentClient: Client | undefined;
-  private _contextSwitchTool: Tool<any>;
+  private _contextSwitchTool: ToolDefinition;
   private _tools: ToolDefinition[] = [];
   private _server: Server | undefined;
 
@@ -59,12 +59,12 @@ export class ProxyBackend implements ServerBackend {
       return this._tools;
     return [
       ...this._tools,
-      toToolDefinition(this._contextSwitchTool.schema),
+      this._contextSwitchTool,
     ];
   }
 
   async callTool(name: string, rawArguments: any): Promise<ToolResponse> {
-    if (name === this._contextSwitchTool.schema.name)
+    if (name === this._contextSwitchTool.name)
       return this._callContextSwitchTool(rawArguments);
     const result = await this._currentClient!.callTool({
       name,
@@ -95,39 +95,28 @@ export class ProxyBackend implements ServerBackend {
     }
   }
 
-  private _defineContextSwitchTool(): Tool<any> {
-    return defineTool({
-      capability: 'core',
-
-      schema: {
-        name: 'browser_connect',
+  private _defineContextSwitchTool(): ToolDefinition {
+    return {
+      name: 'browser_connect',
+      description: [
+        'Connect to a browser using one of the available methods:',
+        ...this._clientFactories.map(factory => `- "${factory.name}": ${factory.description}`),
+      ].join('\n'),
+      inputSchema: zodToJsonSchema(z.object({
+        name: z.enum(this._clientFactories.map(factory => factory.name) as [string, ...string[]]).default(this._clientFactories[0].name).describe('The method to use to connect to the browser'),
+      }), { strictUnions: true }) as ToolDefinition['inputSchema'],
+      annotations: {
         title: 'Connect to a browser context',
-        description: [
-          'Connect to a browser using one of the available methods:',
-          ...this._clientFactories.map(factory => `- "${factory.name}": ${factory.description}`),
-        ].join('\n'),
-        inputSchema: z.object({
-          name: z.enum(this._clientFactories.map(factory => factory.name) as [string, ...string[]]).default(this._clientFactories[0].name).describe('The method to use to connect to the browser'),
-        }),
-        type: 'readOnly',
+        readOnlyHint: true,
+        openWorldHint: true,
       },
-
-      async handle() {
-        throw new Error('Unreachable');
-      }
-    });
+    };
   }
 
   private async _setCurrentClient(factory: ClientFactory) {
     await this._currentClient?.close();
     this._currentClient = await factory.create(this._server!);
     const tools = await this._currentClient.listTools();
-    this._tools = tools.tools.map(tool => ({
-      name: tool.name,
-      title: tool.title ?? '',
-      description: tool.description ?? '',
-      inputJsonSchema: tool.inputSchema ?? {},
-      type: tool.annotations?.readOnlyHint ? 'readOnly' as const : 'destructive' as const,
-    }));
+    this._tools = tools.tools;
   }
 }

@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-import { z } from 'zod';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import { ManualPromise } from '../manualPromise.js';
 import { logUnhandledError } from '../log.js';
 
-import type { ImageContent, TextContent } from '@modelcontextprotocol/sdk/types.js';
+import type { ImageContent, TextContent, Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 export type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
@@ -36,17 +34,7 @@ export type ToolResponse = {
   isError?: boolean;
 };
 
-export type ToolSchema<Input extends z.Schema> = {
-  name: string;
-  title: string;
-  description: string;
-  inputSchema: Input;
-  type: 'readOnly' | 'destructive';
-};
-
-export type ToolDefinition = Omit<ToolSchema<any>, 'inputSchema'> & { inputJsonSchema: any };
-
-export type ToolHandler = (toolName: string, params: any) => Promise<ToolResponse>;
+export type ToolDefinition = Tool;
 
 export interface ServerBackend {
   name: string;
@@ -55,16 +43,6 @@ export interface ServerBackend {
   tools(): ToolDefinition[];
   callTool(name: string, rawArguments: any): Promise<ToolResponse>;
   serverClosed?(): void;
-}
-
-export function toToolDefinition(tool: ToolSchema<any>): ToolDefinition {
-  return {
-    name: tool.name,
-    title: tool.title,
-    description: tool.description,
-    inputJsonSchema: zodToJsonSchema(tool.inputSchema),
-    type: tool.type,
-  };
 }
 
 export type ServerBackendFactory = () => ServerBackend;
@@ -85,17 +63,7 @@ export function createServer(backend: ServerBackend, runHeartbeat: boolean): Ser
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const tools = backend.tools();
-    return { tools: tools.map(tool => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputJsonSchema,
-      annotations: {
-        title: tool.title,
-        readOnlyHint: tool.type === 'readOnly',
-        destructiveHint: tool.type === 'destructive',
-        openWorldHint: true,
-      },
-    })) };
+    return { tools };
   });
 
   let heartbeatRunning = false;
