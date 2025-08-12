@@ -127,7 +127,6 @@ export class ProxyBackend implements ServerBackend {
           clientName === 'Visual Studio Code' ||
           clientName === 'Visual Studio Code - Insiders')) {
           const { roots } = await this._server!.listRoots();
-          console.error('  => listRoots roots', roots);
           return { roots };
         }
         return { roots: [] };

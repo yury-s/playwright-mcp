@@ -28,7 +28,6 @@ import { BrowserServerBackend } from './browserServerBackend.js';
 import { ExtensionContextFactory } from './extension/extensionContextFactory.js';
 
 import type { ClientFactoryList } from './mcp/proxyBackend.js';
-import type { ServerBackendFactory } from './mcp/server.js';
 import type { FullConfig } from './config.js';
 
 program
@@ -84,15 +83,13 @@ program
         return;
       }
 
-      let serverBackendFactory: ServerBackendFactory;
       const browserContextFactory = contextFactory(config);
       const factories: ClientFactoryList = [
         new InProcessClientFactory(browserContextFactory, config),
       ];
       if (options.connectTool)
         factories.push(new InProcessClientFactory(createExtensionContextFactory(config), config));
-      serverBackendFactory = () => new ProxyBackend(factories);
-      await mcpTransport.start(serverBackendFactory, config.server);
+      await mcpTransport.start(() => new ProxyBackend(factories), config.server);
     });
 
 function setupExitWatchdog() {
