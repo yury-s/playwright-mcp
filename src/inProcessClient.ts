@@ -20,7 +20,7 @@ import { ListRootsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { BrowserContextFactory } from './browserContextFactory.js';
 import { BrowserServerBackend } from './browserServerBackend.js';
 import { InProcessTransport } from './mcp/inProcessTransport.js';
-import { packageJSON } from './package.js';
+import { packageJSON } from './utils/package.js';
 import * as mcpServer from './mcp/server.js';
 
 import type { FullConfig } from './config.js';

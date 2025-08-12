@@ -60,7 +60,7 @@ export class BrowserServerBackend implements ServerBackend {
       config: this._config,
       browserContextFactory: this._browserContextFactory,
       sessionLog: this._sessionLog,
-      clientInfo: { ...server.getClientVersion()!, rootPath },
+      clientInfo: { ...server.getClientVersion(), rootPath },
     });
   }
 
