@@ -158,6 +158,9 @@ Playwright MCP server supports following arguments. They can be provided in the 
   --config <path>              path to the configuration file.
   --device <device>            device to emulate, for example: "iPhone 15"
   --executable-path <path>     path to the browser executable.
+  --extension                  Connect to a running browser instance
+                               (Edge/Chrome only). Requires the "Playwright MCP
+                               Bridge" browser extension to be installed.
   --headless                   run browser in headless mode, headed by default
   --host <host>                host to bind server to. Default is localhost. Use
                                0.0.0.0 to bind to all interfaces.
