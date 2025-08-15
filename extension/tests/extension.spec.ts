@@ -104,84 +104,84 @@ for (const [mode, startClientMethod] of [
   ['extension-flag', startWithExtensionFlag],
 ] as const) {
 
-test(`navigate with extension (${mode})`, async ({ browserWithExtension, startClient, server }) => {
-  const browserContext = await browserWithExtension.launch();
+  test(`navigate with extension (${mode})`, async ({ browserWithExtension, startClient, server }) => {
+    const browserContext = await browserWithExtension.launch();
 
-  const client = await startClientMethod(browserWithExtension, startClient);
+    const client = await startClientMethod(browserWithExtension, startClient);
 
-  const confirmationPagePromise = browserContext.waitForEvent('page', page => {
-    return page.url().startsWith('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
+    const confirmationPagePromise = browserContext.waitForEvent('page', page => {
+      return page.url().startsWith('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
+    });
+
+    const navigateResponse = client.callTool({
+      name: 'browser_navigate',
+      arguments: { url: server.HELLO_WORLD },
+    });
+
+    const selectorPage = await confirmationPagePromise;
+    await selectorPage.locator('.tab-item', { hasText: 'Playwright MCP Extension' }).getByRole('button', { name: 'Connect' }).click();
+
+    expect(await navigateResponse).toHaveResponse({
+      pageState: expect.stringContaining(`- generic [active] [ref=e1]: Hello, world!`),
+    });
   });
 
-  const navigateResponse = client.callTool({
-    name: 'browser_navigate',
-    arguments: { url: server.HELLO_WORLD },
+  test(`snapshot of an existing page (${mode})`, async ({ browserWithExtension, startClient, server }) => {
+    const browserContext = await browserWithExtension.launch();
+
+    const page = await browserContext.newPage();
+    await page.goto(server.HELLO_WORLD);
+
+    // Another empty page.
+    await browserContext.newPage();
+    expect(browserContext.pages()).toHaveLength(3);
+
+    const client = await startClientMethod(browserWithExtension, startClient);
+    expect(browserContext.pages()).toHaveLength(3);
+
+    const confirmationPagePromise = browserContext.waitForEvent('page', page => {
+      return page.url().startsWith('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
+    });
+
+    const navigateResponse = client.callTool({
+      name: 'browser_snapshot',
+      arguments: { },
+    });
+
+    const selectorPage = await confirmationPagePromise;
+    expect(browserContext.pages()).toHaveLength(4);
+
+    await selectorPage.locator('.tab-item', { hasText: 'Title' }).getByRole('button', { name: 'Connect' }).click();
+
+    expect(await navigateResponse).toHaveResponse({
+      pageState: expect.stringContaining(`- generic [active] [ref=e1]: Hello, world!`),
+    });
+
+    expect(browserContext.pages()).toHaveLength(4);
   });
 
-  const selectorPage = await confirmationPagePromise;
-  await selectorPage.locator('.tab-item', { hasText: 'Playwright MCP Extension' }).getByRole('button', { name: 'Connect' }).click();
+  test(`extension not installed timeout (${mode})`, async ({ browserWithExtension, startClient, server }) => {
+    process.env.PWMCP_TEST_CONNECTION_TIMEOUT = '100';
 
-  expect(await navigateResponse).toHaveResponse({
-    pageState: expect.stringContaining(`- generic [active] [ref=e1]: Hello, world!`),
+    const browserContext = await browserWithExtension.launch();
+
+    const client = await startClientMethod(browserWithExtension, startClient);
+
+    const confirmationPagePromise = browserContext.waitForEvent('page', page => {
+      return page.url().startsWith('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
+    });
+
+    expect(await client.callTool({
+      name: 'browser_navigate',
+      arguments: { url: server.HELLO_WORLD },
+    })).toHaveResponse({
+      result: expect.stringContaining('Extension connection timeout. Make sure the "Playwright MCP Bridge" extension is installed.'),
+      isError: true,
+    });
+
+    await confirmationPagePromise;
+
+    process.env.PWMCP_TEST_CONNECTION_TIMEOUT = undefined;
   });
-});
-
-test(`snapshot of an existing page (${mode})`, async ({ browserWithExtension, startClient, server }) => {
-  const browserContext = await browserWithExtension.launch();
-
-  const page = await browserContext.newPage();
-  await page.goto(server.HELLO_WORLD);
-
-  // Another empty page.
-  await browserContext.newPage();
-  expect(browserContext.pages()).toHaveLength(3);
-
-  const client = await startClientMethod(browserWithExtension, startClient);
-  expect(browserContext.pages()).toHaveLength(3);
-
-  const confirmationPagePromise = browserContext.waitForEvent('page', page => {
-    return page.url().startsWith('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
-  });
-
-  const navigateResponse = client.callTool({
-    name: 'browser_snapshot',
-    arguments: { },
-  });
-
-  const selectorPage = await confirmationPagePromise;
-  expect(browserContext.pages()).toHaveLength(4);
-
-  await selectorPage.locator('.tab-item', { hasText: 'Title' }).getByRole('button', { name: 'Connect' }).click();
-
-  expect(await navigateResponse).toHaveResponse({
-    pageState: expect.stringContaining(`- generic [active] [ref=e1]: Hello, world!`),
-  });
-
-  expect(browserContext.pages()).toHaveLength(4);
-});
-
-test(`extension not installed timeout (${mode})`, async ({ browserWithExtension, startClient, server }) => {
-  process.env.PWMCP_TEST_CONNECTION_TIMEOUT = '100';
-
-  const browserContext = await browserWithExtension.launch();
-
-  const client = await startClientMethod(browserWithExtension, startClient);
-
-  const confirmationPagePromise = browserContext.waitForEvent('page', page => {
-    return page.url().startsWith('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
-  });
-
-  expect(await client.callTool({
-    name: 'browser_navigate',
-    arguments: { url: server.HELLO_WORLD },
-  })).toHaveResponse({
-    result: expect.stringContaining('Extension connection timeout. Make sure the "Playwright MCP Bridge" extension is installed.'),
-    isError: true,
-  });
-
-  await confirmationPagePromise;
-
-  process.env.PWMCP_TEST_CONNECTION_TIMEOUT = undefined;
-});
 
 }
