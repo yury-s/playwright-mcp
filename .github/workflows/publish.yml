@@ -69,7 +69,7 @@ jobs:
             attach_eol_manifest $tag
           done
 
-  publish-extension:
+  package-extension:
     runs-on: ubuntu-latest
     permissions:
       contents: write # Needed to upload release assets
