@@ -16,8 +16,8 @@
 
 import fs from 'fs';
 import path from 'path';
-import { chromium } from 'playwright';
 import { fileURLToPath } from 'url';
+import { chromium } from 'playwright';
 import packageJSON from '../../package.json' assert { type: 'json' };
 import { test as base, expect } from '../../tests/fixtures.js';
 
