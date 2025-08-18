@@ -108,13 +108,6 @@ export class CDPRelayServer {
       new Promise((_, reject) => abortSignal.addEventListener('abort', reject))
     ]);
     debugLogger('Extension connection established');
-    const { version } = await this._extensionConnection!.send('getVersion', {}).catch(error => {
-      debugLogger('getVersion error', error);
-      return { version: '0.0.34' }; // First released version, didn't support the "getVersion" command.
-    });
-    debugLogger('Extension version:', version);
-    if (version !== packageJSON.version)
-      throw new Error(`Extension version mismatch: expected ${packageJSON.version}, got ${version}. Make sure the extension is up to date.`);
   }
 
   private _connectBrowser(clientInfo: ClientInfo) {
