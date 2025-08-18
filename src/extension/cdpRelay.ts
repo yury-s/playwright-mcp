@@ -122,7 +122,12 @@ export class CDPRelayServer {
     // Need to specify "key" in the manifest.json to make the id stable when loading from file.
     const url = new URL('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
     url.searchParams.set('mcpRelayUrl', mcpRelayEndpoint);
-    url.searchParams.set('client', JSON.stringify(clientInfo));
+    const client = {
+      name: clientInfo.name,
+      version: clientInfo.version,
+    };
+    url.searchParams.set('client', JSON.stringify(client));
+    url.searchParams.set('pwMcpVersion', packageJSON.version);
     const href = url.toString();
     const executableInfo = registry.findExecutable(this._browserChannel);
     if (!executableInfo)
