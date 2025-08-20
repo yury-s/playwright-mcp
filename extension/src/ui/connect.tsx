@@ -32,6 +32,7 @@ const ConnectApp: React.FC = () => {
   const [showTabList, setShowTabList] = useState(true);
   const [clientInfo, setClientInfo] = useState('unknown');
   const [mcpRelayUrl, setMcpRelayUrl] = useState('');
+  const [newTab, setNewTab] = useState<boolean>(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -74,7 +75,14 @@ const ConnectApp: React.FC = () => {
     }
 
     void connectToMCPRelay(relayUrl);
-    void loadTabs();
+
+    // If this is a browser_navigate command, hide the tab list and show simple allow/reject
+    if (params.get('newTab') === 'true') {
+      setNewTab(true);
+      setShowTabList(false);
+    } else {
+      void loadTabs();
+    }
   }, []);
 
   const handleReject = useCallback((message: string) => {
@@ -98,7 +106,7 @@ const ConnectApp: React.FC = () => {
       setStatus({ type: 'error', message: 'Failed to load tabs: ' + response.error });
   }, []);
 
-  const handleConnectToTab = useCallback(async (tab: TabInfo) => {
+  const handleConnectToTab = useCallback(async (tab?: TabInfo) => {
     setShowButtons(false);
     setShowTabList(false);
 
@@ -106,8 +114,8 @@ const ConnectApp: React.FC = () => {
       const response = await chrome.runtime.sendMessage({
         type: 'connectToTab',
         mcpRelayUrl,
-        tabId: tab.id,
-        windowId: tab.windowId,
+        tabId: tab?.id,
+        windowId: tab?.windowId,
       });
 
       if (response?.success) {
@@ -144,9 +152,22 @@ const ConnectApp: React.FC = () => {
           <div className='status-container'>
             <StatusBanner status={status} />
             {showButtons && (
-              <Button variant='reject' onClick={() => handleReject('Connection rejected. This tab can be closed.')}>
-                Reject
-              </Button>
+              <div className='button-container'>
+                {newTab ? (
+                  <>
+                    <Button variant='primary' onClick={() => handleConnectToTab()}>
+                      Allow
+                    </Button>
+                    <Button variant='reject' onClick={() => handleReject('Connection rejected. This tab can be closed.')}>
+                      Reject
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant='reject' onClick={() => handleReject('Connection rejected. This tab can be closed.')}>
+                    Reject
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         )}
