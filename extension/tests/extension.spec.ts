@@ -233,7 +233,7 @@ for (const [mode, startClientMethod] of [
     });
 
     const confirmationPage = await confirmationPagePromise;
-    await expect(confirmationPage.locator('.status-banner')).toHaveText(`Incompatible Playwright MCP version: ${packageJSON.version} (extension version: 0.0.1). Click here to download the latest version of the extension and drag and drop it into the Chrome extensions page. See installation instructions for more details.`);
+    await expect(confirmationPage.locator('.status-banner')).toHaveText(`Incompatible Playwright MCP version: ${packageJSON.version} (extension version: 0.0.1). Click here to download the matching extension, then drag and drop it into the Chrome Extensions page. See installation instructions for more details.`);
 
     expect(await navigateResponse).toHaveResponse({
       result: expect.stringContaining('Extension connection timeout.'),

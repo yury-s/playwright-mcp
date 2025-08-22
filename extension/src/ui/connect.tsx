@@ -204,7 +204,7 @@ const VersionMismatchError: React.FC<{ pwMcpVersion: string; extensionVersion: s
       <button
         onClick={handleDownloadAndOpenExtensions}
         className='link-button'
-      >Click here</button> to download the latest version of the extension and drag and drop it into the Chrome extensions page.{' '}
+      >Click here</button> to download the matching extension, then drag and drop it into the Chrome Extensions page.{' '}
       See <a href={readmeUrl} target='_blank' rel='noopener noreferrer'>installation instructions</a> for more details.
     </div>
   );
