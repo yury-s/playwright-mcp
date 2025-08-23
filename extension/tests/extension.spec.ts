@@ -117,7 +117,7 @@ async function startWithExtensionFlag(browserWithExtension: BrowserWithExtension
   return client;
 }
 
-const testWithOldVersion = test.extend({
+const testWithOldExtensionVersion = test.extend({
   pathToExtension: async ({}, use, testInfo) => {
     const extensionDir = testInfo.outputPath('extension');
     const oldPath = fileURLToPath(new URL('../dist', import.meta.url));
@@ -216,7 +216,7 @@ for (const [mode, startClientMethod] of [
     await confirmationPagePromise;
   });
 
-  testWithOldVersion(`extension version mismatch (${mode})`, async ({ browserWithExtension, startClient, server, useShortConnectionTimeout }) => {
+  testWithOldExtensionVersion(`works with old extension version (${mode})`, async ({ browserWithExtension, startClient, server, useShortConnectionTimeout }) => {
     useShortConnectionTimeout(500);
 
     // Prelaunch the browser, so that it is properly closed after the test.
@@ -233,19 +233,13 @@ for (const [mode, startClientMethod] of [
       arguments: { url: server.HELLO_WORLD },
     });
 
-    const confirmationPage = await confirmationPagePromise;
-    await expect(confirmationPage.locator('.status-banner')).toHaveText(`Incompatible Playwright MCP version: ${packageJSON.version} (extension version: 0.0.1). Click here to download the matching extension, then drag and drop it into the Chrome Extensions page. See installation instructions for more details.`);
+    const selectorPage = await confirmationPagePromise;
+    // For browser_navigate command, the UI shows Allow/Reject buttons instead of tab selector
+    await selectorPage.getByRole('button', { name: 'Allow' }).click();
 
     expect(await navigateResponse).toHaveResponse({
-      result: expect.stringContaining('Extension connection timeout.'),
-      isError: true,
+      pageState: expect.stringContaining(`- generic [active] [ref=e1]: Hello, world!`),
     });
-
-    const downloadPromise = confirmationPage.waitForEvent('download');
-    await confirmationPage.locator('.status-banner').getByRole('button', { name: 'Click here' }).click();
-    const download = await downloadPromise;
-    expect(download.url()).toBe(`https://github.com/microsoft/playwright-mcp/releases/download/v0.0.1/playwright-mcp-extension-v0.0.1.zip`);
-    await download.cancel();
   });
 
 }
