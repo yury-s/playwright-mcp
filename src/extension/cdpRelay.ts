@@ -29,7 +29,6 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { httpAddressToString } from '../mcp/http.js';
 import { logUnhandledError } from '../utils/log.js';
 import { ManualPromise } from '../mcp/manualPromise.js';
-import { packageJSON } from '../utils/package.js';
 
 import type websocket from 'ws';
 import type { ClientInfo } from '../browserContextFactory.js';
