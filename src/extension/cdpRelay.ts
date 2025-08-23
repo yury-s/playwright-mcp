@@ -29,7 +29,6 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { httpAddressToString } from '../mcp/http.js';
 import { logUnhandledError } from '../utils/log.js';
 import { ManualPromise } from '../mcp/manualPromise.js';
-import { packageJSON } from '../utils/package.js';
 import * as protocol from './protocol.js';
 
 import type websocket from 'ws';
@@ -122,7 +121,6 @@ export class CDPRelayServer {
       version: clientInfo.version,
     };
     url.searchParams.set('client', JSON.stringify(client));
-    url.searchParams.set('pwMcpVersion', packageJSON.version);
     url.searchParams.set('protocolVersion', process.env.PWMCP_TEST_PROTOCOL_VERSION ?? protocol.VERSION.toString());
     if (toolName)
       url.searchParams.set('newTab', String(toolName === 'browser_navigate'));
