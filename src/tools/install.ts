@@ -27,7 +27,9 @@ const install = defineTool({
     name: 'browser_install',
     title: 'Install the browser specified in the config',
     description: 'Install the browser specified in the config. Call this if you get an error about the browser not being installed.',
-    inputSchema: z.object({}),
+    inputSchema: z.object({
+      withDeps: z.boolean().optional().describe('Whether to install browser dependencies. Defaults to false.'),
+    }),
     type: 'destructive',
   },
 
@@ -35,7 +37,7 @@ const install = defineTool({
     const channel = context.config.browser?.launchOptions?.channel ?? context.config.browser?.browserName ?? 'chrome';
     const cliUrl = import.meta.resolve('playwright/package.json');
     const cliPath = path.join(fileURLToPath(cliUrl), '..', 'cli.js');
-    const child = fork(cliPath, ['install', channel], {
+    const child = fork(cliPath, ['install', channel, ...(params.withDeps ? ['--with-deps'] : [])], {
       stdio: 'pipe',
     });
     const output: string[] = [];
