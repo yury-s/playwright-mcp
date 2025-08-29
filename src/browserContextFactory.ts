@@ -24,6 +24,7 @@ import { registryDirectory } from 'playwright-core/lib/server/registry/index';
 // @ts-ignore
 import { startTraceViewerServer } from 'playwright-core/lib/server';
 import { logUnhandledError, testDebug } from './utils/log.js';
+import { findBrowserProcess, getBrowserExecPath } from './utils/processUtils.js';
 import { createHash } from './utils/guid.js';
 import { outputFile  } from './config.js';
 
@@ -189,7 +190,13 @@ class PersistentContextFactory implements BrowserContextFactory {
       } catch (error: any) {
         if (error.message.includes('Executable doesn\'t exist'))
           throw new Error(`Browser specified in your config is not installed. Either install it (likely) or change the config.`);
+        if (error.message.includes('A copy of Firefox is already open. Only one copy of Firefox can be open at a time.'))
+          throw new Error(`Browser is already running for '${userDataDir}', use --isolated to run multiple instances of the same browser or wait for the existing one to close.`);
         if (error.message.includes('ProcessSingleton') || error.message.includes('Invalid URL')) {
+          const execPath = this.config.browser.launchOptions.executablePath ?? getBrowserExecPath(this.config.browser.launchOptions.channel ?? browserType.name());
+          const processLine = findBrowserProcess(execPath, userDataDir);
+          if (processLine)
+            throw new Error(`Browser is already running for '${userDataDir}', use --isolated to run multiple instances of the same browser or wait for the existing one to close.`);
           // User data directory is already in use, try again.
           await new Promise(resolve => setTimeout(resolve, 1000));
           continue;

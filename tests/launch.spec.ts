@@ -167,3 +167,32 @@ test('isolated context with storage state', async ({ startClient, server }, test
     pageState: expect.stringContaining(`Storage: session-value`),
   });
 });
+
+test('persistent context already running', async ({ startClient, server, mcpBrowser }, testInfo) => {
+  const userDataDir = testInfo.outputPath('user-data-dir');
+  const { client } = await startClient({
+    args: [`--user-data-dir=${userDataDir}`],
+  });
+  await client.callTool({
+    name: 'browser_navigate',
+    arguments: { url: server.HELLO_WORLD },
+  });
+
+  const { client: client2 } = await startClient({
+    args: [`--user-data-dir=${userDataDir}`],
+  });
+  const result = await client2.callTool({
+    name: 'browser_navigate',
+    arguments: { url: server.HELLO_WORLD },
+  });
+  if (mcpBrowser === 'webkit') {
+    expect(result).toHaveResponse({
+      pageState: expect.stringContaining(`- generic [active] [ref=e1]: Hello, world!`),
+    });
+  } else {
+    expect(result).toHaveResponse({
+      result: expect.stringContaining(`Browser is already running for '`),
+      isError: true
+    });
+  }
+});
