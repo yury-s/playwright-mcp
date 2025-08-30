@@ -178,21 +178,35 @@ test('persistent context already running', async ({ startClient, server, mcpBrow
     arguments: { url: server.HELLO_WORLD },
   });
 
-  const { client: client2 } = await startClient({
+  const { client: client2, stderr } = await startClient({
     args: [`--user-data-dir=${userDataDir}`],
   });
-  const result = await client2.callTool({
+  const navigationPromise = client2.callTool({
     name: 'browser_navigate',
     arguments: { url: server.HELLO_WORLD },
   });
-  if (mcpBrowser === 'webkit') {
-    expect(result).toHaveResponse({
-      pageState: expect.stringContaining(`- generic [active] [ref=e1]: Hello, world!`),
-    });
-  } else {
-    expect(result).toHaveResponse({
-      result: expect.stringContaining(`Browser is already running for '`),
-      isError: true
-    });
-  }
+
+  const wait = await Promise.race([
+    navigationPromise.then(() => 'done'),
+    new Promise(resolve => setTimeout(resolve, 1_000)).then(() => 'timeout'),
+  ]);
+  expect(wait).toBe('timeout');
+
+  // Check that the second client is trying to launch the browser.
+  await expect.poll(() => formatOutput(stderr()), { timeout: 0 }).toEqual([
+    'create context',
+    'create browser context (persistent)',
+    'lock user data dir'
+  ]);
+
+  // Close first client's browser.
+  await client.callTool({
+    name: 'browser_close',
+    arguments: { url: server.HELLO_WORLD },
+  });
+
+  const result = await navigationPromise;
+  expect(result).toHaveResponse({
+    pageState: expect.stringContaining(`- generic [active] [ref=e1]: Hello, world!`),
+  });
 });

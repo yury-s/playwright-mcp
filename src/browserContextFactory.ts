@@ -29,6 +29,7 @@ import { createHash } from './utils/guid.js';
 import { outputFile  } from './config.js';
 
 import type { FullConfig } from './config.js';
+import type { BrowserType } from 'playwright';
 
 export function contextFactory(config: FullConfig): BrowserContextFactory {
   if (config.browser.remoteEndpoint)
@@ -176,35 +177,30 @@ class PersistentContextFactory implements BrowserContextFactory {
     testDebug('lock user data dir', userDataDir);
 
     const browserType = playwright[this.config.browser.browserName];
+
     for (let i = 0; i < 5; i++) {
-      try {
-        const browserContext = await browserType.launchPersistentContext(userDataDir, {
-          tracesDir,
-          ...this.config.browser.launchOptions,
-          ...this.config.browser.contextOptions,
-          handleSIGINT: false,
-          handleSIGTERM: false,
-        });
-        const close = () => this._closeBrowserContext(browserContext, userDataDir);
-        return { browserContext, close };
-      } catch (error: any) {
-        if (error.message.includes('Executable doesn\'t exist'))
-          throw new Error(`Browser specified in your config is not installed. Either install it (likely) or change the config.`);
-        if (error.message.includes('A copy of Firefox is already open. Only one copy of Firefox can be open at a time.'))
-          throw new Error(`Browser is already running for '${userDataDir}', use --isolated to run multiple instances of the same browser or wait for the existing one to close.`);
-        if (error.message.includes('ProcessSingleton') || error.message.includes('Invalid URL')) {
-          const execPath = this.config.browser.launchOptions.executablePath ?? getBrowserExecPath(this.config.browser.launchOptions.channel ?? browserType.name());
-          const processLine = findBrowserProcess(execPath, userDataDir);
-          if (processLine)
-            throw new Error(`Browser is already running for '${userDataDir}', use --isolated to run multiple instances of the same browser or wait for the existing one to close.`);
-          // User data directory is already in use, try again.
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          continue;
-        }
-        throw error;
-      }
+      if (!await alreadyRunning(this.config, browserType, userDataDir))
+        break;
+      // User data directory is already in use, wait for the previous browser instance to close.
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    throw new Error(`Browser is already in use for ${userDataDir}, use --isolated to run multiple instances of the same browser`);
+    try {
+      const browserContext = await browserType.launchPersistentContext(userDataDir, {
+        tracesDir,
+        ...this.config.browser.launchOptions,
+        ...this.config.browser.contextOptions,
+        handleSIGINT: false,
+        handleSIGTERM: false,
+      });
+      const close = () => this._closeBrowserContext(browserContext, userDataDir);
+      return { browserContext, close };
+    } catch (error: any) {
+      if (error.message.includes('Executable doesn\'t exist'))
+        throw new Error(`Browser specified in your config is not installed. Either install it (likely) or change the config.`);
+      if (error.message.includes('ProcessSingleton') || error.message.includes('Invalid URL'))
+        throw new Error(`Browser is already in use for ${userDataDir}, use --isolated to run multiple instances of the same browser`);
+      throw error;
+    }
   }
 
   private async _closeBrowserContext(browserContext: playwright.BrowserContext, userDataDir: string) {
@@ -224,6 +220,11 @@ class PersistentContextFactory implements BrowserContextFactory {
     await fs.promises.mkdir(result, { recursive: true });
     return result;
   }
+}
+
+async function alreadyRunning(config: FullConfig, browserType: BrowserType, userDataDir: string) {
+  const execPath = config.browser.launchOptions.executablePath ?? getBrowserExecPath(config.browser.launchOptions.channel ?? browserType.name());
+  return !!findBrowserProcess(execPath, userDataDir);
 }
 
 async function injectCdpPort(browserConfig: FullConfig['browser']) {
