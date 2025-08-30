@@ -48,7 +48,7 @@ function findProcessMacos(execPath: string, arg: string): string | null {
 }
 
 function findProcessWindows(execPath: string, arg: string): string | null {
-  const filter = `$_.ExecutablePath -eq '${execPath}' -and $_.CommandLine -match '${arg}' -and $_.CommandLine -notmatch '--type'`;
+  const filter = `$_.ExecutablePath -eq '${execPath}' -and $_.CommandLine.Contains('${arg}') -and $_.CommandLine -notmatch '--type'`;
   const ps = childProcess.spawnSync(
       'powershell.exe',
       [
