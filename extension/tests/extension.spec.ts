@@ -165,6 +165,44 @@ for (const [mode, startClientMethod] of [
     });
   });
 
+  test.only(`close page using browser_tabs close action (${mode})`, async ({ browserWithExtension, startClient, server }) => {
+    const browserContext = await browserWithExtension.launch();
+
+    const client = await startClientMethod(browserWithExtension, startClient);
+
+    await new Promise(() => {});
+
+    const confirmationPagePromise = browserContext.waitForEvent('page', page => {
+      return page.url().startsWith('chrome-extension://jakfalbnbhgkpmoaakfflhflbfpkailf/connect.html');
+    });
+
+    const navigateResponse = client.callTool({
+      name: 'browser_navigate',
+      arguments: { url: server.HELLO_WORLD },
+    });
+
+    const selectorPage = await confirmationPagePromise;
+    // For browser_navigate command, the UI shows Allow/Reject buttons instead of tab selector
+    await selectorPage.getByRole('button', { name: 'Allow' }).click();
+
+    expect(await navigateResponse).toHaveResponse({
+      pageState: expect.stringContaining(`- generic [active] [ref=e1]: Hello, world!`),
+      tabs: expect.arrayContaining([expect.objectContaining({
+        title: 'Hello, world!',
+      })]),
+    });
+
+    expect(await client.callTool({
+      name: 'browser_tabs',
+      arguments: { action: 'list' },
+    })).toHaveResponse({
+      result: 'Successfully closed page.',
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 100000));
+  });
+
+
   test(`snapshot of an existing page (${mode})`, async ({ browserWithExtension, startClient, server }) => {
     const browserContext = await browserWithExtension.launch();
 
