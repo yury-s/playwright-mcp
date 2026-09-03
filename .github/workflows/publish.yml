@@ -1,14 +1,12 @@
 name: Publish
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 8 * * *'
   release:
     types: [published]
 
 jobs:
   publish-mcp-canary-npm:
-    if: github.event.schedule || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
