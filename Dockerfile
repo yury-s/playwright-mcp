@@ -9,7 +9,7 @@ ARG DEBIAN_MIRROR_HOST=deb.debian.org
 # ------------------------------
 # Base stage: Contains only the minimal dependencies required for runtime
 # (node_modules and Playwright system dependencies)
-FROM ${ACR_CACHE_PREFIX}node:22-bookworm-slim AS base
+FROM ${ACR_CACHE_PREFIX}node:lts-slim AS base
 
 ARG PLAYWRIGHT_BROWSERS_PATH
 ENV PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}
